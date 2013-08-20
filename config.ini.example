@@ -1,0 +1,68 @@
+[global]
+vlans_file = example_config/VLANs
+transit_file = example_config/TNETs
+aliases_file = example_config/hosts.ini
+routers_file = example_config/routers.ini
+policies_dir = example_config/policies
+policies_ext = .pol
+compiled_dir = example_config/policies/.compiled
+# if umask is empty, will not change umask
+# see http://docs.python.org/library/stat.html#stat.S_ISUID for notation
+umask = 432
+# if groupid is empty, will not change group ownership
+groupid =
+services_file = example_config/services
+use_rcs = false
+default_pol = example_config/default.pol
+ignore_macros = broadcast lan dns antiSpoof
+
+# Logging configuration
+[loggers]
+keys = root, faust, routers, routersinfo
+
+[handlers]
+keys = console, file
+
+[formatters]
+keys = generic, console
+
+[logger_root]
+level = NOTSET
+handlers =
+
+# Used to log actions done by faust.py
+[logger_faust]
+level = DEBUG
+handlers = console
+qualname = faust
+
+# Loggs communication with routers
+[logger_routers]
+level = DEBUG
+handlers = file
+qualname = lib.dialects
+
+# Infos concerning router communication
+[logger_routersinfo]
+level = INFO
+handlers = console
+qualname = lib.dialects
+
+[handler_console]
+class = StreamHandler
+args = (sys.stderr,)
+level = INFO
+formatter = console
+
+[handler_file]
+class=FileHandler
+args=('debug.log', 'a')
+level = DEBUG
+formatter = generic
+
+[formatter_generic]
+format = %(asctime)s,%(msecs)03d %(levelname)-5.5s [%(name)s] %(message)s
+datefmt = %H:%M:%S
+
+[formatter_console]
+format = %(message)s

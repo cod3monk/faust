@@ -1,0 +1,23 @@
+; ------------------------------------------------------------------------------
+; List of transit networks, where only the transit network is under our control, 
+; but not the "routed-through" network.
+; ------------------------------------------------------------------------------
+;
+; Format: fields are delimited by one or more TAB(s) -- not SPACES --
+;
+; Domain	Id	Name	IPv4    IPv6	Comment
+;
+; - Ids have to be in increasing order
+; - Id, Name, IPv4 and IPv6 may *not* contain spaces
+; - If no IPv4 or IPv6 IPs are associated, it can be replaced by -
+; - no empty fields are allowed (except for comments) 
+; - empty line and lines beginning with ; are ignored
+;
+; Transit Network             | "Routed-Through" (control-free) Network
+;---------+-------+-----------+-------------------+---------------------------+----------------
+; Domain  | Id    | Name      | IPv4              | IPv6                      | Comment
+;---------+-------+-----------+-------------------+---------------------------+----------------
+
+-			1		default		-					-							DO NOT USE!
+
+POLES		105		vlan105		10.0.5.0/24			-							customer 5

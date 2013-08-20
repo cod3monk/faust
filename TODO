@@ -1,0 +1,25 @@
+- Spaltenbreite bei search optimieren
+- Userfriendly Parser Errors
+- Fehlertolerantere Kommunikation mit Routern
+  - selbständiger rollback? nein!
+  - user aber über Zustand nach Abbruch informieren
+- Trace (faust.py trace) through ACLs
+- read-only webinterface
+- DOKUMENTATION
+- paketieren
+  - setup.py ersetllen: http://docs.python.org/2/distutils/setupscript.html
+- github release WIP
+  - split macros.py in individual macro files and one lib file
+  - Include GPL or more restrictive license header in files
+  - create example VLANs and TNETs files
+  - create example Routingdomain Directory and ACL
+  - enhance or remove documentation
+  - upload
+  - abstract VLANs interface
+  - abstract TNETs interface
+
+- keywords und services aus code in config umziehen
+- API um ACLs (.pol files) zu parsen, generieren und bearbeiten
+- Tell user who currently holds the lock
+
+- Unit Tests

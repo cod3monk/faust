@@ -1,0 +1,107 @@
+no ip access-list extended POLES105_IN
+ip access-list extended POLES105_IN
+remark FAUSt2 ACL generated from File "example_config/policies/POLES/105.pol" on 2013-08-20 16:16:21.468766
+remark FAUSt2 metacl from File "example_config/policies/POLES/105.pol", line 1
+permit ip host 42.42.100.1 host 224.0.0.1
+permit ip host 42.42.100.1 host 224.0.0.1
+permit ip host 42.42.100.2 host 224.0.0.1
+permit udp host 42.42.100.1 eq 1985 host 224.0.0.2 eq 1985
+permit udp host 42.42.100.1 eq 1985 host 224.0.0.2 eq 1985
+permit udp host 42.42.100.2 eq 1985 host 224.0.0.2 eq 1985
+permit udp host 42.42.100.1 eq 1985 host 224.0.0.102 eq 1985
+permit udp host 42.42.100.1 eq 1985 host 224.0.0.102 eq 1985
+permit udp host 42.42.100.2 eq 1985 host 224.0.0.102 eq 1985
+permit ip host 42.42.100.1 host 224.0.0.13
+permit ip host 42.42.100.1 host 224.0.0.13
+permit ip host 42.42.100.2 host 224.0.0.13
+permit tcp 42.42.100.0 0.0.0.3 host 42.42.100.1 established
+permit tcp 42.42.100.0 0.0.0.3 host 42.42.100.1 established
+permit tcp 42.42.100.0 0.0.0.3 host 42.42.100.2 established
+permit tcp 10.0.5.0 0.0.0.255 host 42.42.100.1 established
+permit tcp 10.0.5.0 0.0.0.255 host 42.42.100.1 established
+permit tcp 10.0.5.0 0.0.0.255 host 42.42.100.2 established
+permit icmp 42.42.100.0 0.0.0.3 host 42.42.100.1
+permit icmp 42.42.100.0 0.0.0.3 host 42.42.100.1
+permit icmp 42.42.100.0 0.0.0.3 host 42.42.100.2
+permit icmp 10.0.5.0 0.0.0.255 host 42.42.100.1
+permit icmp 10.0.5.0 0.0.0.255 host 42.42.100.1
+permit icmp 10.0.5.0 0.0.0.255 host 42.42.100.2
+permit udp 42.42.100.0 0.0.0.3 host 42.42.42.42 eq 123
+permit udp 10.0.5.0 0.0.0.255 host 42.42.42.42 eq 123
+permit udp 42.42.100.0 0.0.0.3 host 42.42.100.1 eq 123
+permit udp 10.0.5.0 0.0.0.255 host 42.42.100.1 eq 123
+deny ip any host 42.42.100.1
+deny ip any host 42.42.100.1
+deny ip any host 42.42.100.2
+remark FAUSt2 metacl from File "example_config/policies/POLES/105.pol", line 2
+permit tcp 42.42.100.0 0.0.0.3 host 131.188.0.10 eq 53
+permit tcp 10.0.5.0 0.0.0.255 host 131.188.0.10 eq 53
+permit udp 42.42.100.0 0.0.0.3 host 131.188.0.10 eq 53
+permit udp 10.0.5.0 0.0.0.255 host 131.188.0.10 eq 53
+permit tcp 42.42.100.0 0.0.0.3 host 131.188.0.11 eq 53
+permit tcp 10.0.5.0 0.0.0.255 host 131.188.0.11 eq 53
+permit udp 42.42.100.0 0.0.0.3 host 131.188.0.11 eq 53
+permit udp 10.0.5.0 0.0.0.255 host 131.188.0.11 eq 53
+remark FAUSt2 metacl from File "example_config/policies/POLES/105.pol", line 3
+deny ip any host 255.255.255.255
+deny ip any host 42.42.100.3
+deny ip any host 10.0.5.255
+remark FAUSt2 metacl from File "example_config/policies/POLES/105.pol", line 4
+deny ip any 42.42.100.0 0.0.0.3
+deny ip any 10.0.5.0 0.0.0.255
+remark FAUSt2 metacl from File "example_config/policies/POLES/105.pol", line 5
+permit ip 42.42.100.0 0.0.0.3 131.188.12.16 0.0.0.15
+permit ip 10.0.5.0 0.0.0.255 131.188.12.16 0.0.0.15
+permit tcp 42.42.100.0 0.0.0.3 host 131.188.3.202 eq 80
+permit tcp 10.0.5.0 0.0.0.255 host 131.188.3.202 eq 80
+remark FAUSt2 metacl from File "example_config/policies/POLES/105.pol", line 10
+permit ip 42.42.100.0 0.0.0.3 any
+permit ip 10.0.5.0 0.0.0.255 any
+remark FAUSt2 metacl from File "example_config/policies/POLES/105.pol", line 11
+deny ip any any
+
+no ip access-list extended POLES105_OUT
+ip access-list extended POLES105_OUT
+remark FAUSt2 ACL generated from File "example_config/policies/POLES/105.pol" on 2013-08-20 16:16:21.470207
+remark FAUSt2 metacl from File "example_config/policies/POLES/105.pol", line 1
+permit ip host 42.42.100.1 42.42.100.0 0.0.0.3
+permit ip host 42.42.100.1 10.0.5.0 0.0.0.255
+permit ip host 42.42.100.1 42.42.100.0 0.0.0.3
+permit ip host 42.42.100.1 10.0.5.0 0.0.0.255
+permit ip host 42.42.100.2 42.42.100.0 0.0.0.3
+permit ip host 42.42.100.2 10.0.5.0 0.0.0.255
+permit icmp 42.42.100.0 0.0.0.3 host 42.42.100.1
+permit icmp 42.42.100.0 0.0.0.3 host 42.42.100.1
+permit icmp 42.42.100.0 0.0.0.3 host 42.42.100.2
+permit icmp 10.0.5.0 0.0.0.255 host 42.42.100.1
+permit icmp 10.0.5.0 0.0.0.255 host 42.42.100.1
+permit icmp 10.0.5.0 0.0.0.255 host 42.42.100.2
+permit udp host 42.42.42.42 eq 123 42.42.100.0 0.0.0.3
+permit udp host 42.42.42.42 eq 123 10.0.5.0 0.0.0.255
+permit ip any 224.0.0.0 15.255.255.255
+remark FAUSt2 metacl from File "example_config/policies/POLES/105.pol", line 2
+permit tcp host 131.188.0.10 eq 53 42.42.100.0 0.0.0.3
+permit tcp host 131.188.0.10 eq 53 10.0.5.0 0.0.0.255
+permit udp host 131.188.0.10 eq 53 42.42.100.0 0.0.0.3
+permit udp host 131.188.0.10 eq 53 10.0.5.0 0.0.0.255
+permit tcp host 131.188.0.11 eq 53 42.42.100.0 0.0.0.3
+permit tcp host 131.188.0.11 eq 53 10.0.5.0 0.0.0.255
+permit udp host 131.188.0.11 eq 53 42.42.100.0 0.0.0.3
+permit udp host 131.188.0.11 eq 53 10.0.5.0 0.0.0.255
+remark FAUSt2 metacl from File "example_config/policies/POLES/105.pol", line 3
+deny ip any host 255.255.255.255
+deny ip any host 42.42.100.3
+deny ip any host 10.0.5.255
+remark FAUSt2 metacl from File "example_config/policies/POLES/105.pol", line 4
+deny ip 42.42.100.0 0.0.0.3 any
+deny ip 10.0.5.0 0.0.0.255 any
+remark FAUSt2 metacl from File "example_config/policies/POLES/105.pol", line 5
+permit ip 131.188.12.16 0.0.0.15 42.42.100.0 0.0.0.3
+permit ip 131.188.12.16 0.0.0.15 10.0.5.0 0.0.0.255
+permit tcp host 131.188.3.202 eq 80 42.42.100.0 0.0.0.3
+permit tcp host 131.188.3.202 eq 80 10.0.5.0 0.0.0.255
+remark FAUSt2 metacl from File "example_config/policies/POLES/105.pol", line 14
+permit ip any 42.42.100.0 0.0.0.3
+permit ip any 10.0.5.0 0.0.0.255
+remark FAUSt2 metacl from File "example_config/policies/POLES/105.pol", line 15
+deny ip any any

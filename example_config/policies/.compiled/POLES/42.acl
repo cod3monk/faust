@@ -1,0 +1,120 @@
+no ip access-list extended POLES42_IN
+ip access-list extended POLES42_IN
+remark FAUSt2 ACL generated from File "example_config/policies/POLES/42.pol" on 2013-08-20 16:16:22.599397
+remark FAUSt2 metacl from File "example_config/policies/POLES/42.pol", line 9
+deny ip any 42.42.42.0 0.0.0.255
+remark FAUSt2 metacl from File "example_config/policies/POLES/42.pol", line 10
+deny ip any host 255.255.255.255
+deny ip any host 42.42.42.255
+remark FAUSt2 metacl from File "example_config/policies/POLES/42.pol", line 11
+permit icmp host 127.0.0.1 host 10.0.0.23
+permit tcp host 127.0.0.1 host 10.0.0.23
+permit udp host 127.0.0.1 host 10.0.0.23
+remark FAUSt2 metacl from File "example_config/policies/POLES/42.pol", line 58
+permit ip 42.42.42.0 0.0.0.255 any
+remark FAUSt2 metacl from File "example_config/policies/POLES/42.pol", line 59
+permit ip 10.0.0.0 0.0.0.255 any
+remark FAUSt2 metacl from File "example_config/policies/POLES/42.pol", line 61
+permit ip 10.0.0.0 0.0.0.255 any
+remark FAUSt2 metacl from File "example_config/policies/POLES/42.pol", line 63
+permit ip host 10.0.0.1 any
+permit ip 10.0.0.2 0.0.0.1 any
+permit ip 10.0.0.4 0.0.0.3 any
+permit ip 10.0.0.8 0.0.0.7 any
+permit ip 10.0.0.16 0.0.0.15 any
+permit ip 10.0.0.32 0.0.0.31 any
+permit ip 10.0.0.64 0.0.0.63 any
+permit ip 10.0.0.128 0.0.0.127 any
+remark FAUSt2 metacl from File "example_config/policies/POLES/42.pol", line 65
+permit ip host 10.0.0.1 any
+permit ip 10.0.0.2 0.0.0.1 any
+permit ip 10.0.0.4 0.0.0.3 any
+permit ip 10.0.0.8 0.0.0.7 any
+permit ip 10.0.0.16 0.0.0.15 any
+permit ip 10.0.0.32 0.0.0.31 any
+permit ip 10.0.0.64 0.0.0.63 any
+permit ip 10.0.0.128 0.0.0.127 any
+remark FAUSt2 metacl from File "example_config/policies/POLES/42.pol", line 66
+deny ip any any
+remark FAUSt2 metacl from File "example_config/policies/POLES/42.pol", line 68
+permit ip 42.42.42.0 0.0.0.255 10.0.0.0 0.255.255.255
+permit ip 42.42.42.0 0.0.0.255 172.16.0.0 0.15.255.255
+permit ip 42.42.42.0 0.0.0.255 192.168.0.0 0.0.255.255
+
+no ip access-list extended POLES42_OUT
+ip access-list extended POLES42_OUT
+remark FAUSt2 ACL generated from File "example_config/policies/POLES/42.pol" on 2013-08-20 16:16:22.600720
+remark FAUSt2 metacl from File "example_config/policies/POLES/42.pol", line 9
+deny ip 42.42.42.0 0.0.0.255 any
+remark FAUSt2 metacl from File "example_config/policies/POLES/42.pol", line 10
+deny ip any host 255.255.255.255
+deny ip any host 42.42.42.255
+remark FAUSt2 metacl from File "example_config/policies/POLES/42.pol", line 11
+permit icmp host 10.0.0.23 host 127.0.0.1
+permit tcp host 10.0.0.23 host 127.0.0.1
+permit udp host 10.0.0.23 host 127.0.0.1
+remark FAUSt2 metacl from File "example_config/policies/POLES/42.pol", line 74
+permit tcp any any established
+remark FAUSt2 metacl from File "example_config/policies/POLES/42.pol", line 75
+permit ip 42.42.23.0 0.0.0.255 any
+remark FAUSt2 metacl from File "example_config/policies/POLES/42.pol", line 77
+permit tcp host 42.42.23.23 host 42.42.42.1 established
+remark FAUSt2 metacl from File "example_config/policies/POLES/42.pol", line 79
+permit tcp any range 22 25 host 42.42.42.242 eq 22
+remark FAUSt2 metacl from File "example_config/policies/POLES/42.pol", line 80
+permit tcp any host 42.42.42.242 eq 22
+permit tcp any host 42.42.42.242 eq 23
+permit tcp any host 42.42.42.242 eq 42
+remark FAUSt2 metacl from File "example_config/policies/POLES/42.pol", line 81
+permit tcp any host 42.42.42.242 range 22 50
+remark FAUSt2 metacl from File "example_config/policies/POLES/42.pol", line 82
+permit tcp any host 42.42.42.242 eq 443
+permit tcp any host 42.42.42.242 range 80 92
+permit udp any host 42.42.42.242 eq 443
+permit udp any host 42.42.42.242 range 80 92
+remark FAUSt2 metacl from File "example_config/policies/POLES/42.pol", line 89
+deny ip any any
+
+no ipv6 access-list POLES42_IN6
+ipv6 access-list POLES42_IN6
+remark FAUSt2 ACL generated from File "example_config/policies/POLES/42.pol" on 2013-08-20 16:16:22.601352
+remark FAUSt2 metacl from File "example_config/policies/POLES/42.pol", line 9
+deny ipv6 any 2001:638:A000:42::/64
+remark FAUSt2 metacl from File "example_config/policies/POLES/42.pol", line 58
+permit ipv6 2001:638:A000:42::/64 any
+remark FAUSt2 metacl from File "example_config/policies/POLES/42.pol", line 66
+deny ipv6 any any
+
+no ipv6 access-list POLES42_OUT6
+ipv6 access-list POLES42_OUT6
+remark FAUSt2 ACL generated from File "example_config/policies/POLES/42.pol" on 2013-08-20 16:16:22.601577
+remark FAUSt2 metacl from File "example_config/policies/POLES/42.pol", line 9
+deny ipv6 2001:638:A000:42::/64 any
+remark FAUSt2 metacl from File "example_config/policies/POLES/42.pol", line 74
+permit tcp any any established
+remark FAUSt2 metacl from File "example_config/policies/POLES/42.pol", line 84
+permit tcp host ::1 FFFF:AAAA:1234::5/16
+remark FAUSt2 metacl from File "example_config/policies/POLES/42.pol", line 85
+permit udp host 23::7B38:708 42:123:55AF::1717:1717/112
+remark FAUSt2 metacl from File "example_config/policies/POLES/42.pol", line 86
+permit icmp host 23::1 23::1234/127
+permit icmp host 23::1 host 42::1
+permit icmp host 23::1 host 42::5
+permit icmp host 23::1 42::8/127
+permit icmp 23::2/127 23::1234/127
+permit icmp 23::2/127 host 42::1
+permit icmp 23::2/127 host 42::5
+permit icmp 23::2/127 42::8/127
+permit icmp 23::4/127 23::1234/127
+permit icmp 23::4/127 host 42::1
+permit icmp 23::4/127 host 42::5
+permit icmp 23::4/127 42::8/127
+permit icmp host 23::6 23::1234/127
+permit icmp host 23::6 host 42::1
+permit icmp host 23::6 host 42::5
+permit icmp host 23::6 42::8/127
+remark FAUSt2 metacl from File "example_config/policies/POLES/42.pol", line 87
+deny ipv6 host ::1 any
+deny ipv6 DEAD::BEEF/100 any
+remark FAUSt2 metacl from File "example_config/policies/POLES/42.pol", line 89
+deny ipv6 any any

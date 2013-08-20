@@ -1,0 +1,24 @@
+; ------------------------------------------------------------------------------
+; List of all VLANs
+; ------------------------------------------------------------------------------
+;
+; Format: fields are delimited by one or more TAB(s) -- not SPACES --
+;
+; Domain	Id	Name	IPv4    IPv6	Comment
+;
+; - Ids have to be in increasing order
+; - Id, Name, IPv4 and IPv6 may *not* contain spaces
+; - If no IPv4 or IPv6 IPs are associated, it can be replaced by -
+; - no empty fields are allowed (except for comments) 
+; - empty line and lines beginning with ; are ignored
+;
+
+;---------+-------+-----------+-------------------+---------------------------+----------------
+; Domain  | Id    | Name      | IPv4              | IPv6                      | Comment
+;---------+-------+-----------+-------------------+---------------------------+----------------
+
+-			1		default		-					-							DO NOT USE!
+
+POLES		23		vlan23		42.42.23.0/24		-							IPv4 only vlan
+POLES		42		vlan42		42.42.42.0/24		2001:638:a000:42::/64		IPv4 and 6 vlan
+POLES		105		vlan105		42.42.100.0/30		-							customer 5 transit
