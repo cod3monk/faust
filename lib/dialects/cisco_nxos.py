@@ -192,17 +192,18 @@ def ip_to_acl_string(ip):
         return str(ip)
 
 def ports_to_acl_string(ports):
-    '''Takes a list of ports and returns a list of cisco acl descriptions'''
-    
-    if not ports:
-        return ['']
+    '''Takes a Ports object and returns a list of cisco acl descriptions'''
     l = []
-    for p in ports:
-        if p[0] == 'eq':
-            l.append(' eq '+str(p[1]))
-        elif p[0] == 'range':
-            l.append(' range '+str(p[1][0])+' '+str(p[1][1]))
-    return l
+
+    for p in ports.ports:
+        l.append(' eq %s' % p)
+    for r in ports.ranges:
+        l.append(' range %s %s' % r)
+
+    if len(l) > 0:
+        return l
+    else:
+        return ['']
 
 def rule_to_acl_ipv4_string(self):
     '''Returns a list of strings in cisco acl syntax'''
