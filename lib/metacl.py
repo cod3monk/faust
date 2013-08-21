@@ -148,6 +148,11 @@ class Ports:
     def __bool__(self):
         return bool(self.ports) or bool(self.ranges)
     __nonzero__=__bool__
+    
+    def __len__(self):
+        # Returns total number of ports
+        s = sum(map(lambda x, y: y-x+1, self.ranges))
+        return len(self.ports)+s
 
 def string_to_ips(string, context=None, temp_aliases=None):
     '''Parses ip description *string* and returns approriate list of

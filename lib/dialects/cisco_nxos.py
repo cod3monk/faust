@@ -194,7 +194,7 @@ def ip_to_acl_string(ip):
 def ports_to_acl_string(ports):
     '''Takes a list of ports and returns a list of cisco acl descriptions'''
     
-    if len(ports) == 0:
+    if not ports:
         return ['']
     l = []
     for p in ports:
