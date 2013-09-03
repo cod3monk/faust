@@ -154,6 +154,11 @@ class lan(Macro):
             first = [ipaddr.IPNetwork(local6[1]), ipaddr.IPNetwork(local6[2])]
 
             macl.acl_out.insert(0, metacl.Rule.from_string('permit ip any fe80::/10', context=macl.context, parent=self))
+            macl.acl_out.insert(1, metacl.Rule('permit',
+               metacl.Filter(['icmp'],
+                   macl.context.get_alias('local'),
+                   first,
+                   parent=self), parent=self))
             macl.acl_in.insert(0, metacl.Rule.from_string('permit ip fe80::/10 any', context=macl.context, parent=self))
             macl.acl_in.insert(1, metacl.Rule.from_string('permit ip local fe80::/10', context=macl.context, parent=self))
             macl.acl_in.insert(2, metacl.Rule('permit',
@@ -512,6 +517,22 @@ class nagios(Macro):
                     macl.context.get_alias('nagios'), 
                     h,
                     parent=self), parent=self))
+
+class license(Macro):
+    def call(self, macl):
+        macl.acl_in.insert(0, metacl.Rule.from_string(
+            'permit udp local $license 5093',
+            context=macl.context, parent=self))
+        macl.acl_in.insert(0, metacl.Rule.from_string(
+            'permit tcp local $license 1700-1799,16286',
+            context=macl.context, parent=self))
+
+        macl.acl_out.insert(0, metacl.Rule.from_string(
+            'permit udp $license 5093 local',     
+            context=macl.context, parent=self))
+        macl.acl_out.insert(0, metacl.Rule.from_string(
+            'permit tcp $license local 1700-1799,16286',  
+            context=macl.context, parent=self))
 
 
 class block(Macro):
