@@ -419,10 +419,10 @@ def main():
         found = []
         for n in nets+tnets:
             if type(ip) is ipaddr.IPv4Address:
-                if ip in n[3]:
+                if n[3] and ip in n[3]:
                     found.append(n)
             elif type(ip) is ipaddr.IPv6Address:
-                if ip in n[4]:
+                if n[4] and ip in n[4]:
                     found.append(n)
 
         if len(found) >0:
