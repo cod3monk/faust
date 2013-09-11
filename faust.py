@@ -430,7 +430,7 @@ def main():
                 log.warning('Multiple VLANs found for given IP, continuing anyway.')
             for n in found:
                 rd, vlanid = n[0], n[1]
-                log.info('Blocking IP in VLAN', vlanid, 'on', rd+'...')
+                log.info('Blocking IP in VLAN '+str(vlanid)+' on'+rd+'...')
                 c = metacl.Context(rd, vlanid)
 
                 # RCS checkout
