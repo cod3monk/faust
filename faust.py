@@ -185,7 +185,10 @@ def usage():
         checks in VLANs and TNETs file if vlan exists
     scheck <routing_domain> [<vlan_id>]
         checks for conflicts in the given policies
-        if no vlan_id is given, faust will process all available policy files"""
+        if no vlan_id is given, faust will process all available policy files
+    rules <ip>
+        displays all rules concerning <ip> from the according VLANs (as listed 
+        with search)"""
 
 def main():
 
@@ -459,6 +462,60 @@ def main():
 
                 metacl.ACL.from_context(c).install()
                 log.info("Sucessfully blocked %s" % ip)
+        else:
+            log.error('No VLAN found for given IP. Aborting.')
+            sys.exit(2)
+        
+    elif command == 'rules':
+        if len(options) < 1:
+            print >> sys.stderr, 'No IP given'
+            usage()
+            sys.exit(2)
+
+        comment = str(datetime.datetime.now())+' by '+getpass.getuser()
+        if len(options) > 1:
+            comment += ': '+' '.join(options[1:])
+
+        try:
+            ip = ipaddr.IPAddress(options[0])
+        except Exception, err:
+            log.error(str(err))
+            usage()
+            sys.exit()
+
+        nets = read_lannetfile(lib.config.get('global', 'vlans_file'))
+        tnets = read_lannetfile(lib.config.get('global', 'transit_file'))
+
+        found = []
+        ip_versions = set()
+        for n in nets+tnets:
+            if type(ip) is ipaddr.IPv4Address:
+                if n[3] and ip in n[3]:
+                    ip_versions.add('ipv4')
+                    found.append(n)
+            elif type(ip) is ipaddr.IPv6Address:
+                if n[4] and ip in n[4]:
+                    ip_versions.add('ipv4')
+                    found.append(n)
+
+        if len(found) >0:
+            if len(found) > 1:
+                log.warning('Multiple VLANs found for given IP, continuing anyway.')
+            for n in found:
+                rd, vlanid = n[0], n[1]
+                c = metacl.Context(rd, vlanid)
+                acl = c.get_acl()
+                acl.apply_macros()
+                rules = acl.get_rules(ip_versions=list(ip_versions))
+                
+                print "From %s VLAN %s:" % (rd, vlanid)
+                print "lineno  rule"
+                linenos = []
+                for r in rules:
+                    f = r.filter
+                    if r.lineno not in linenos and any(map(lambda x: ip in x, f.sources+f.destinations)):
+                        print '%s\t%s' % (r.lineno, r.sourceline.strip())
+                        linenos.append(r.lineno)
         else:
             log.error('No VLAN found for given IP. Aborting.')
             sys.exit(2)
