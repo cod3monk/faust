@@ -16,6 +16,37 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+'''
+FAU Security Tool (FAUST)
+An ACL generator and distributor.
+
+Usage:
+  faust.py (compile|install|check|scheck) [-q] <routingdomain> [<vlan_id> ...]
+  faust.py block <ip> [<comment> ...]
+  faust.py unblock <ip>
+  faust.py search <ip>
+  faust.py rules <ip>
+  faust.py create <routingdomain> <vlan_id>
+  faust.py -h | --help
+  faust.py --version
+
+Options:
+  -h --help     Show this screen.
+  --version     Show version.
+  -q --quiet    Quiet mode. Only errors are reported.
+
+Commands:
+    compile     Only compiles, no interation with router(s).
+    install     Compiles and installs on router(s).
+    check       Compiles and checks if ACL is up-to-date on router(s).
+    scheck      Compiles and checks ACL for sanity (consitent rules).
+    block       Blocks ip in ACL and installes current acl on router(s).
+    unblock     Unblocks ip in ACL and installes current acl on router(s).
+    search      Find VLAN information for given ip.
+    rules       Print all rules regarding given ip.
+    create      Creates default ACL for given VLAN.
+'''
+
 import os
 import sys
 import random
@@ -32,6 +63,7 @@ import lib
 from lib import metacl, helpers, macros, dialects
 from lib.third_party import ipaddr
 from lib.third_party import texttable
+from lib.third_party import docopt
 
 import logging
 try:
@@ -156,41 +188,7 @@ def choose_conflicts(conflicts):
         log.info("Choose from Conflicts or (n) to continue")
         choice = sys.stdin.readline()
 
-
-def usage():
-    print "Usage:", sys.argv[0], "[arguments] <command> [options]"
-    print
-    print """Available commands are:
-    compile <routing_domain> [<vlan_id>]
-        compiles and checks acl, does not touch anything on router(s)
-        if no vlan_id is given, faust will process all available policy files
-    install <routing_domain> [<vlan_id>]
-        compiles acl, transferes it to router(s), and binds it to interface
-        and removes formerly bound acl from router(s)
-        if no vlan_id is given, faust will process all available policy files
-    trace <source_ip> <source_port> <destination_ip> <destination_port> [-r]
-        TODO
-        traces packets through acls
-        -r      also trace return path
-    search <ip>
-        searches acls relevant for given ip
-    block <ip> [comment]
-        blockes ip (includes transfer to router and binds to interface)
-    unblock <ip>
-        unblocks ip (incluces transfer to router and binds to interface)
-    check <routing_domain> [<vlan_id>]
-        checks wether acl on router(s) are up-to-date
-    create <routing_domain> <vlan_id>
-        copies default policy file to the appropriate location and
-        checks in VLANs and TNETs file if vlan exists
-    scheck <routing_domain> [<vlan_id>]
-        checks for conflicts in the given policies
-        if no vlan_id is given, faust will process all available policy files
-    rules <ip>
-        displays all rules concerning <ip> from the according VLANs (as listed 
-        with search)"""
-
-def main():
+def main(arguments):
 
     if len(sys.argv) <= 1:
         print >> sys.stderr, "No arguments given"
@@ -199,30 +197,21 @@ def main():
 
     command = sys.argv[1]
     options = sys.argv[2:]
-
+    
     log.debug("Called with argv: %s" % sys.argv)
 
-    if command == 'compile':
-        vlans = []
+    if arguments['compile']:
+        routingdomain, vlans = arguments['<routingdomain>'], arguments['<vlan_id>']
 
         # Do we want to compile and install all vlans in one routing domain?
-        if len(options) == 1:
+        if not vlans:
             try:
-                l = os.listdir(lib.config.get('global', 'policies_dir')+'/'+options[0])
+                l = os.listdir(lib.config.get('global', 'policies_dir')+'/'+routingdomain)
             except OSError:
                 log.error("Domain policy directory not found.")
                 sys.exit(2)
             ext = lib.config.get('global', 'policies_ext')
             vlans = map(lambda x: x[:-len(ext)], filter(lambda x: x.endswith(ext), l))
-        # Or only one given vlan
-        elif len(options) == 2:
-            vlans = [options[1]]
-        else:
-            usage()
-            log.error("Invalid argument count: Required options not given: <routingdomain> [<vlanid>]. aborted")
-            sys.exit(2)
-
-        routingdomain = options[0]
 
         log.info("Compiling ACL(s) for vlan(s): %s" % vlans)
 
@@ -233,18 +222,19 @@ def main():
                 context = metacl.Context(routingdomain,vlanid)
                 acl = context.get_acl()
                 #make sanity_check for vlanid
-                conflicts = acl.sanity_check()
-                if conflicts:
-                    log.info("sanity_check found %s Conflicts in %s"%(len(conflicts),vlanid))
-                    log.info("(y) to show or any other key to skip and continue compiling")
-                    choice = sys.stdin.readline()
-                    if choice == "y\n":
-                        choose_conflicts(conflicts)
-                        log.info("press (y) to continue compiling or other key to abort")
+                if not arguments['--quiet']:
+                    conflicts = acl.sanity_check()
+                    if conflicts:
+                        log.info("sanity_check found %s Conflicts in %s"%(len(conflicts),vlanid))
+                        log.info("(y) to show or any other key to skip and continue compiling")
                         choice = sys.stdin.readline()
-                        if choice != "y\n":
-                            fail_count.append(vlanid)
-                            continue
+                        if choice == "y\n":
+                            choose_conflicts(conflicts)
+                            log.info("press (y) to continue compiling or other key to abort")
+                            choice = sys.stdin.readline()
+                            if choice != "y\n":
+                                fail_count.append(vlanid)
+                                continue
                 cfile, acl, ipv6 = acl.compile()
             except (metacl.Error, macros.Error, dialects.generic.Error), err:
                 if isinstance(err, helpers.Trackable):
@@ -265,28 +255,19 @@ def main():
             log.warning("%s ACLs did not compile, they are: %s" % \
                 (len(fail_count), str(fail_count)))
 
-    elif command == 'install':
-        vlans = []
+    elif arguments['install']:
+        routingdomain, vlans = arguments['<routingdomain>'], arguments['<vlan_id>']
 
         # Do we want to compile and install all vlans in one routing domain?
-        if len(options) == 1:
+        if not vlans:
             try:
-                l = os.listdir(lib.config.get('global', 'policies_dir')+'/'+options[0])
+                l = os.listdir(lib.config.get('global', 'policies_dir')+'/'+routingdomain)
             except OSError as e:
-                log.critical("Could not read policy directory for routing domain '"+options[0]+"': "+str(e))
+                log.critical("Could not read policy directory for routing domain '"+routingdomain+"': "+str(e))
                 sys.exit(2)
             ext = lib.config.get('global', 'policies_ext')
             vlans = map(lambda x: x[:-len(ext)], filter(lambda x: x.endswith(ext), l))
-        # Or only one given vlan
-        elif len(options) == 2:
-            vlans = [options[1]]
-        else:
-            usage()
-            log.error("Invalid argument count: Required options not given: <routingdomain> [<vlanid>]. aborted")
-            sys.exit(2)
-
-        routingdomain = options[0]
-
+        
         log.info("Installing ACLs for vlan(s): %s" % (vlans))
 
         ipv6_count = 0
@@ -297,18 +278,19 @@ def main():
                 context = metacl.Context(routingdomain,vlanid)
                 acl = context.get_acl()
                 #make sanity_check for vlanid
-                conflicts = acl.sanity_check()
-                if conflicts:
-                    log.info("sanity_check found %s Conflicts in %s"%(len(conflicts),vlanid))
-                    log.info("(y) to show any other key to skip and continue compiling")
-                    choice = sys.stdin.readline()
-                    if choice == "y\n":
-                        choose_conflicts(conflicts)
-                        log.info("press (y) to continue compiling or other key to abort")
+                if not arguments['--quiet']:
+                    conflicts = acl.sanity_check()
+                    if conflicts:
+                        log.info("sanity_check found %s Conflicts in %s"%(len(conflicts),vlanid))
+                        log.info("(y) to show any other key to skip and continue compiling")
                         choice = sys.stdin.readline()
-                        if choice != "y\n":
-                            fail_count.append(vlanid)
-                            continue
+                        if choice == "y\n":
+                            choose_conflicts(conflicts)
+                            log.info("press (y) to continue compiling or other key to abort")
+                            choice = sys.stdin.readline()
+                            if choice != "y\n":
+                                fail_count.append(vlanid)
+                                continue
                 cfile, acl_string, ipv6 = acl.compile()
             except (metacl.Error, macros.Error, dialects.generic.Error), err:
                 if isinstance(err, helpers.Trackable):
@@ -331,22 +313,12 @@ def main():
             log.warning("%s ACLs did not install, they are: %s" % \
                 (len(fail_count), str(fail_count)))
 
-    elif command == 'trace':
-        print >> sys.stderr, 'TODO'
-        pass
-
-    elif command == 'search':
-        if len(options) != 1:
-            print >> sys.stderr, 'No ip given'
-            usage()
-            sys.exit(2)
-
+    elif arguments['search']:
         try:
-            ip = ipaddr.IPAddress(options[0])
+            ip = ipaddr.IPAddress(arguments['<ip>'])
         except Exception, err:
             log.error(str(err))
-            usage()
-            sys.exit()
+            sys.exit(2)
 
         nets = read_lannetfile(lib.config.get('global', 'vlans_file'))
         tnets = read_lannetfile(lib.config.get('global', 'transit_file'))
@@ -399,22 +371,16 @@ def main():
         print >> sys.stderr, 'Nothing found.'
         sys.exit(2)
 
-    elif command == 'block':
-        if len(options) < 1:
-            print >> sys.stderr, 'No IP given'
-            usage()
-            sys.exit(2)
-
+    elif arguments['block']:
         comment = str(datetime.datetime.now())+' by '+getpass.getuser()
-        if len(options) > 1:
-            comment += ': '+' '.join(options[1:])
+        if arguments['<comment>']:
+            comment += ': '+' '.join(arguments['<comment>'])
 
         try:
-            ip = ipaddr.IPAddress(options[0])
+            ip = ipaddr.IPAddress(arguments['<ip>'])
         except Exception, err:
             log.error(str(err))
-            usage()
-            sys.exit()
+            sys.exit(2)
 
         nets = read_lannetfile(lib.config.get('global', 'vlans_file'))
         tnets = read_lannetfile(lib.config.get('global', 'transit_file'))
@@ -446,7 +412,7 @@ def main():
 
                 f = open(c.get_policy_path())
                 l = f.readlines()
-                l.insert(0, 'block('+options[0]+') # '+comment+'\n')
+                l.insert(0, 'block('+arguments['<ip>']+') # '+comment+'\n')
                 f.close()
                 f = open(c.get_policy_path(),'w')
                 f.writelines(l)
@@ -466,22 +432,12 @@ def main():
             log.error('No VLAN found for given IP. Aborting.')
             sys.exit(2)
         
-    elif command == 'rules':
-        if len(options) < 1:
-            print >> sys.stderr, 'No IP given'
-            usage()
-            sys.exit(2)
-
-        comment = str(datetime.datetime.now())+' by '+getpass.getuser()
-        if len(options) > 1:
-            comment += ': '+' '.join(options[1:])
-
+    elif arguments['rules']:
         try:
-            ip = ipaddr.IPAddress(options[0])
+            ip = ipaddr.IPAddress(arguments['<ip>'])
         except Exception, err:
             log.error(str(err))
-            usage()
-            sys.exit()
+            sys.exit(2)
 
         nets = read_lannetfile(lib.config.get('global', 'vlans_file'))
         tnets = read_lannetfile(lib.config.get('global', 'transit_file'))
@@ -520,18 +476,12 @@ def main():
             log.error('No VLAN found for given IP. Aborting.')
             sys.exit(2)
 
-    elif command == 'unblock':
-        if len(options) != 1:
-            print >> sys.stderr, 'No IP given'
-            usage()
-            sys.exit(2)
-
+    elif arguments['unblock']:
         try:
-            ip = ipaddr.IPAddress(options[0])
+            ip = ipaddr.IPAddress(arguments['<ip>'])
         except Exception, err:
             log.error(str(err))
-            usage()
-            sys.exit()
+            sys.exit(2)
 
         nets = read_lannetfile(lib.config.get('global', 'vlans_file'))
         tnets = read_lannetfile(lib.config.get('global', 'transit_file'))
@@ -563,7 +513,7 @@ def main():
 
                 f = open(c.get_policy_path())
                 orig = f.read()
-                new = re.sub(re.escape('block('+options[0]+')')+r'[^\n]*\n', '', orig)
+                new = re.sub(re.escape('block('+arguments['<ip>']+')')+r'[^\n]*\n', '', orig)
                 f.close()
 
                 if orig != new:
@@ -588,28 +538,19 @@ def main():
             log.error('No VLAN found for given IP. Aborting.')
             sys.exit(2)
 
-    elif command == 'check':
-        vlans = []
+    elif arguments['check']:
+        routingdomain, vlans = arguments['<routingdomain>'], arguments['<vlan_id>']
         uptodate = True
 
         # Do we want to compile and install all vlans in one routing domain?
-        if len(options) == 1:
+        if not vlans:
             try:
-                l = os.listdir(lib.config.get('global', 'policies_dir')+'/'+options[0])
+                l = os.listdir(lib.config.get('global', 'policies_dir')+'/'+routingdomain)
             except OSError as e:
-                log.error("Could not read policy directory for routing domain '"+options[0]+"': "+str(e))
+                log.error("Could not read policy directory for routing domain '"+routingdomain+"': "+str(e))
                 sys.exit(2)
             ext = lib.config.get('global', 'policies_ext')
             vlans = map(lambda x: x[:-len(ext)], filter(lambda x: x.endswith(ext), l))
-        # Or only one given vlan
-        elif len(options) == 2:
-            vlans = [options[1]]
-        else:
-            usage()
-            log.error("Invalid argument count: Required options not given: <routingdomain> [<vlanid>]. aborted")
-            sys.exit(2)
-
-        routingdomain = options[0]
 
         log.info("Checking ACLs for vlan(s): %s" % vlans)
 
@@ -628,14 +569,8 @@ def main():
                 log.error(msg+'%s' % err)
                 continue
 
-    elif command == 'create':
-        # Checking options
-        if len(options) != 2:
-            usage()
-            log.error("Invalid argument count: Required options not given: <routingdomain> [<vlanid>]. aborted")
-            sys.exit(2)
-
-        routingdomain, vlanid = options
+    elif arguments['create']:
+        routingdomain, vlanid = arguments['<routingdomain>'], arguments['<vlan_id>'][0]
 
         context = metacl.Context(routingdomain, vlanid)
         pol_directory = context.get_policy_dir()
@@ -687,30 +622,21 @@ def main():
         if gid:
             os.chown(pol_file, -1, gid)
 
-        log.info("Successfully created default policy for %s %s" % (options[0], options[1]))
+        log.info("Successfully created default policy for %s %s" % (routingdomain, vlanid))
 
-    elif command == 'scheck':
-        vlans = []
+    elif arguments['scheck']:
+        routingdomain, vlans = arguments['<routingdomain>'], arguments['<vlan_id>']
 
         # Do we want to check all vlans in one routing domain?
-        if len(options) == 1:
+        if not arguments['<vlan_id>']:
             try:
-                l = os.listdir(lib.config.get('global', 'policies_dir')+'/'+options[0])
+                l = os.listdir(lib.config.get('global', 'policies_dir')+'/'+routingdomain)
             except OSError as e:
-                log.error("Could not read policy directory for routing domain '"+options[0]+"': "+str(e))
+                log.error("Could not read policy directory for routing domain '"+routingdomain+"': "+str(e))
                 sys.exit(2)
             ext = lib.config.get('global', 'policies_ext')
             vlans = map(lambda x: x[:-len(ext)], filter(lambda x: x.endswith(ext), l))
-        # Or only one given vlan
-        elif len(options) == 2:
-            vlans = [options[1]]
-        else:
-            usage()
-            log.error("Invalid argument count: Required options not given: <routingdomain> [<vlanid>]. aborted")
-            sys.exit(2)
-
-        routingdomain = options[0]
-
+        
         log.info("Checking ACLs for vlan(s): %s" % (vlans))
 
         conflicts = []
@@ -747,12 +673,13 @@ def main():
 
     else:
         log.error('Unrecognized command')
-        usage()
         sys.exit(2)
 
 if __name__ == "__main__":
     try:
-        main()
+        arguments = docopt.docopt(__doc__, version='FAUST 2.0b1 Gold')
+        print arguments
+        main(arguments)
     except KeyboardInterrupt:
         log.warning('Aborted by user interaction.')
         sys.exit(2)

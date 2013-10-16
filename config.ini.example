@@ -14,6 +14,7 @@ groupid =
 services_file = example_config/services
 use_rcs = false
 default_pol = example_config/default.pol
+#macro commands to be ignored by sanity_check
 ignore_macros = broadcast lan dns antiSpoof
 
 # Logging configuration
