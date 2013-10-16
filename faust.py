@@ -678,7 +678,7 @@ def main(arguments):
 if __name__ == "__main__":
     try:
         arguments = docopt.docopt(__doc__, version='FAUST 2.0b1 Gold')
-        print arguments
+        #print arguments
         main(arguments)
     except KeyboardInterrupt:
         log.warning('Aborted by user interaction.')
