@@ -10,11 +10,6 @@
   - setup.py ersetllen: http://docs.python.org/2/distutils/setupscript.html
 - github release WIP
   - split macros.py in individual macro files and one lib file
-  - Include GPL or more restrictive license header in files
-  - create example VLANs and TNETs files
-  - create example Routingdomain Directory and ACL
-  - enhance or remove documentation
-  - upload
   - abstract VLANs interface
   - abstract TNETs interface
 
