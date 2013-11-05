@@ -1,16 +1,20 @@
 #!/usr/bin/env python
 
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.realpath(__file__))+'/../')
+
 import unittest
 import lib.metacl as m
 import lib.third_party.ipaddr as ipaddr
 
 class TestStringToPorts(unittest.TestCase):
     def test_single_port(self):
-        self.assertEqual(m.string_to_ports("80"), [('eq', 80)])
+        self.assertEqual(m.Ports.from_string("80").to_string(), "80")
     
     def test_multiple_ports(self):
-        ports = m.string_to_ports("80,443,8080")
-        self.assertItemsEqual(ports, [('eq', 80), ('eq', 443), ('eq', 8080)])
+        ports = m.Ports.from_string("80,443,8080")
+        self.assertItemsEqual(ports.to_string(), "80,443,8080")
     
     def test_port_range(self):
         ports = m.string_to_ports("1-1024")
@@ -123,3 +127,6 @@ class TestStringToIPs(unittest.TestCase):
         ips = m.string_to_ips("::/0;fe80::/64;248f::/16;2342:16::/10;" + \
             "fe80:2342:abcd:ff12:1016:8f7f:fe80:c9a")
         self.assertItemsEqual(ips, [ipaddr.IPv6Network("::/0")])
+
+if __name__ == '__main__':
+    unittest.main()

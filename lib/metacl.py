@@ -79,9 +79,9 @@ class ProtocolDoesNotSupportPorts(Error, Trackable):
 
 class Ports:
     '''Ports and Port range handeling in one object'''
-    def __init__(self):
-        self.ranges = []
-        self.ports = []
+    def __init__(self, ports=[], ranges=[]):
+        self.ranges = ranges
+        self.ports = ports
     
     def add_port(self, port):
         # Only add port if not yet existant
@@ -170,6 +170,13 @@ class Ports:
         # Returns total number of ports
         s = sum(map(lambda x, y: y-x+1, self.ranges))
         return len(self.ports)+s
+        
+    def __repr__(self):
+        if self.ranges:
+            return self.__class__.__name__+'(%r, ranges=%r)' % \
+                (self.ports, self.ranges)
+        else:
+            return self.__class__.__name__+'(%r)' % self.ports
 
 def string_to_ips(string, context=None, temp_aliases=None):
     '''Parses ip description *string* and returns approriate list of
