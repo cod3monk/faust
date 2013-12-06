@@ -2,17 +2,17 @@
 #
 # FAUST2 - a network ACL compiler and ditribution system.
 # Copyright (C) 2013  Julian Hammer <julian.hammer@u-sys.org>
-# 
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -27,6 +27,7 @@ Usage:
   faust.py search <ip>
   faust.py rules <ip>
   faust.py create <routingdomain> <vlan_id>
+  faust.py trace <src_ip> <dst_ip>
   faust.py -h | --help
   faust.py --version
 
@@ -45,6 +46,7 @@ Commands:
     search      Find VLAN information for given ip.
     rules       Print all rules regarding given ip.
     create      Creates default ACL for given VLAN.
+    trace       Print rules between src_ip and dst_ip.
 '''
 
 import os
@@ -135,7 +137,7 @@ def print_conflicts(confs):
             lines += [c[2].lineno]
             for line in c[2:]:
                 log.info("%s in line %s" %(polLines[line.lineno-1],line.lineno))
-            
+
             #diffrent presentation style:
             #for line in c[2:]:
             #    log.info("%s in line %s" %(line,line.lineno))
@@ -197,7 +199,7 @@ def main(arguments):
 
     command = sys.argv[1]
     options = sys.argv[2:]
-    
+
     log.debug("Called with argv: %s" % sys.argv)
 
     if arguments['compile']:
@@ -267,7 +269,7 @@ def main(arguments):
                 sys.exit(2)
             ext = lib.config.get('global', 'policies_ext')
             vlans = map(lambda x: x[:-len(ext)], filter(lambda x: x.endswith(ext), l))
-        
+
         log.info("Installing ACLs for vlan(s): %s" % (vlans))
 
         ipv6_count = 0
@@ -441,7 +443,7 @@ def main(arguments):
 
             metacl.ACL.from_context(c).install()
             log.info("Sucessfully blocked %s" % ip)
-        
+
     elif arguments['rules']:
         try:
             ip = ipaddr.IPAddress(arguments['<ip>'])
@@ -461,7 +463,7 @@ def main(arguments):
                     found.append(n)
             elif type(ip) is ipaddr.IPv6Address:
                 if n[4] and ip in n[4]:
-                    ip_versions.add('ipv4')
+                    ip_versions.add('ipv6')
                     found.append(n)
 
         if len(found) >0:
@@ -473,7 +475,7 @@ def main(arguments):
                 acl = c.get_acl()
                 acl.apply_macros()
                 rules = acl.get_rules(ip_versions=list(ip_versions))
-                
+
                 print "From %s VLAN %s:" % (rd, vlanid)
                 print "lineno  rule"
                 linenos = []
@@ -646,7 +648,7 @@ def main(arguments):
                 sys.exit(2)
             ext = lib.config.get('global', 'policies_ext')
             vlans = map(lambda x: x[:-len(ext)], filter(lambda x: x.endswith(ext), l))
-        
+
         log.info("Checking ACLs for vlan(s): %s" % (vlans))
 
         conflicts = []
@@ -676,10 +678,86 @@ def main(arguments):
             choice = sys.stdin.readline()
             if choice == "y\n":
                 choose_conflicts(conflicts)
-            
 
         else:
             log.info("No Conflicts found!")
+
+    elif arguments['trace']:
+        try:
+            src_ip = ipaddr.IPAddress(arguments['<src_ip>'])
+            dst_ip = ipaddr.IPAddress(arguments['<dst_ip>'])
+        except Exception, err:
+            log.error(str(err))
+            sys.exit(2)
+
+        nets = read_lannetfile(lib.config.get('global', 'vlans_file'))
+        tnets = read_lannetfile(lib.config.get('global', 'transit_file'))
+
+        found_src = []
+        found_dst = []
+        ip_versions = set()
+        for n in nets+tnets:
+            if type(src_ip) is ipaddr.IPv4Address:
+                if n[3] and src_ip in n[3]:
+                    ip_versions.add('ipv4')
+                    found_src.append(n)
+                if n[3] and dst_ip in n[3]:
+                    found_dst.append(n)
+            elif type(src_ip) is ipaddr.IPv6Address:
+                if n[4] and src_ip in n[4]:
+                    ip_versions.add('ipv6')
+                    found_src.append(n)
+                if n[3] and dst_ip in n[3]:
+                    found_dst.append(n)
+
+        if len(found_src) >0 and len(found_dst):
+            if len(found_src) > 1 or len(found_dst) > 1:
+                #VLAN file probably wrong
+                log.warning('Multiple VLANs found for given IP. Aborting')
+                sys.exit(2)
+
+            #for sources
+            rd, vlanid = found_src[0][0], found_src[0][1]
+            c = metacl.Context(rd, vlanid)
+            acl = c.get_acl()
+            acl.apply_macros()
+            rules = acl.get_rules(ip_versions=list(ip_versions))
+            #filter rules to match only when destination is dst_ip
+            rules = filter(lambda x: any(map(lambda y: dst_ip in y,x.filter.destinations)),rules)
+
+            print "From %s VLAN %s:" % (rd, vlanid)
+            print "lineno  rule"
+            linenos = []
+            for r in rules:
+                f = r.filter
+                if r.lineno not in linenos and any(map(lambda x: src_ip in x, f.sources+f.destinations)):
+                    print '%s\t%s' % (r.lineno, r.sourceline.strip())
+                    #to prevent same rule printed twice
+                    linenos.append(r.lineno)
+
+            #for destination
+            rd, vlanid = found_dst[0][0], found_dst[0][1]
+            c = metacl.Context(rd, vlanid)
+            acl = c.get_acl()
+            acl.apply_macros()
+            rules = acl.get_rules(ip_versions=list(ip_versions))
+            #filter rules to match only when source is src_ip
+            rules = filter(lambda x: any(map(lambda y: src_ip in y,x.filter.sources)),rules)
+
+            print
+            print "From %s VLAN %s:" % (rd, vlanid)
+            print "lineno  rule"
+            linenos = []
+            for r in rules:
+                f = r.filter
+                if r.lineno not in linenos and any(map(lambda x: src_ip in x, f.sources+f.destinations)):
+                    print '%s\t%s' % (r.lineno, r.sourceline.strip())
+                    #to prevent same rule printed twice
+                    linenos.append(r.lineno)
+
+        else:
+            log.error('No VLAN found for given source or destination. Aborting.')
+            sys.exit(2)
 
     else:
         log.error('Unrecognized command')

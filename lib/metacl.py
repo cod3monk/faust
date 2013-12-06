@@ -79,9 +79,16 @@ class ProtocolDoesNotSupportPorts(Error, Trackable):
 
 class Ports:
     '''Ports and Port range handeling in one object'''
-    def __init__(self, ports=[], ranges=[]):
-        self.ranges = ranges
-        self.ports = ports
+    def __init__(self, ports=None, ranges=None):
+        if ranges:
+            self.ranges = ranges
+        else:
+            self.ranges = []
+        
+        if ports:
+            self.ports = ports
+        else:
+            self.ports = []
     
     def add_port(self, port):
         # Only add port if not yet existant
@@ -126,7 +133,7 @@ class Ports:
     def from_string(cls, s):
         '''Parses port description *s* and returns approriate list.
         *s* must have the following syntax: 23-80,443'''
-        ports = Ports()
+        ports = cls()
 
         # First we build a set with all matching port numbers:
         s = s.split(',')
@@ -1062,7 +1069,8 @@ class Filter(Trackable):
 
     def __init__(self, protocols, sources, destinations, sports=None, dports=None,
             filename=None, lineno=None, parent=None, sourceline=None, ignore_mismatch=False):
-
+        Trackable.__init__(self, filename, lineno, parent)
+        
         if not all(map(lambda x: x in protocol_names, protocols)):
             err = InvalidACL('Invalid protocol')
             Trackable.__init__(err, filename=filename, lineno=lineno,
@@ -1097,10 +1105,9 @@ class Filter(Trackable):
                 "but ports were given.")
             Trackable.__init__(err, filename=filename, lineno=lineno,
                 parent=parent, sourceline=sourceline)
+            
             raise err
-
-        Trackable.__init__(self, filename, lineno, parent)
-
+        
         self.ip_versions = []
         if filter(lambda x: type(x) is IPv6Network, sources) != [] \
             and filter(lambda x: type(x) is IPv6Network, destinations) != []:
@@ -1150,11 +1157,12 @@ class Filter(Trackable):
                 parent=parent)
             raise err
 
-        sports = Ports()
         # Is the following a port? Port descreption may only contain numbers, commas and dashes
         # IPs will not match, as they must contain dots or colons
         if re.match(r'^[0-9\-,]+$', string[-1]) != None:
             sports = Ports.from_string(string.pop())
+        else:
+            sports = Ports()
 
         try:
             destinations = string_to_ips(string.pop(), context, temp_aliases)
@@ -1164,17 +1172,18 @@ class Filter(Trackable):
                 parent=parent)
             raise err
 
-        dports = Ports()
         # Also checking if sufficient elements are left
         if len(string) and re.match(r'^[0-9\-,]+$', string[-1]) != None:
             dports = Ports.from_string(string.pop())
+        else:
+            dports = Ports()
 
         if len(string) > 0:
             err = InvalidACL('Not all elements of filter could be parsed')
             Trackable.__init__(err, filename=filename, lineno=lineno,
                 parent=parent)
             raise err
-
+        
         return cls(protocols, sources, destinations, sports, dports,
             filename, lineno, parent, sourceline, ignore_mismatch)
 
