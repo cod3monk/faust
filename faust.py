@@ -394,43 +394,53 @@ def main(arguments):
                 if n[4] and ip in n[4]:
                     found.append(n)
 
-        if len(found) >0:
-            if len(found) > 1:
-                log.warning('Multiple VLANs found for given IP, continuing anyway.')
-            for n in found:
-                rd, vlanid = n[0], n[1]
-                log.info('Blocking IP in VLAN '+str(vlanid)+' on'+rd+'...')
-                c = metacl.Context(rd, vlanid)
+        if len(found) == 0:
+            try:
+                default = tuple(lib.config.get('global', 'default_block_vlan').split(' '))
+            except:
+                default = None
+            
+            if not default:
+                log.error('No VLAN found for given IP. Aborting. Set '+
+                    'default_block_vlan in config to enable a default block VLAN.')
+                sys.exit(2)
+            
+            log.warning('No VLAN found for given IP. Making use of default VLAN: '+ 
+                str(default)+'.')
+            found = [default]
+        elif len(found) > 1:
+            log.warning('Multiple VLANs found for given IP, continuing anyway.')
+        for n in found:
+            rd, vlanid = n[0], n[1]
+            log.info('Blocking IP in VLAN '+str(vlanid)+' on '+rd+'...')
+            c = metacl.Context(rd, vlanid)
 
-                # RCS checkout
-                if lib.config.get('global', 'use_rcs') == 'true':
-                    cmd = 'co -l '+c.get_policy_path()
-                    sts = os.system(cmd)
-                    if sts:
-                        log.error('RCS checkout of '+c.get_policy_path()+' failed.')
-                        sys.exit(2)
+            # RCS checkout
+            if lib.config.get('global', 'use_rcs') == 'true':
+                cmd = 'co -l '+c.get_policy_path()
+                sts = os.system(cmd)
+                if sts:
+                    log.error('RCS checkout of '+c.get_policy_path()+' failed.')
+                    sys.exit(2)
 
-                f = open(c.get_policy_path())
-                l = f.readlines()
-                l.insert(0, 'block('+arguments['<ip>']+') # '+comment+'\n')
-                f.close()
-                f = open(c.get_policy_path(),'w')
-                f.writelines(l)
-                f.close()
+            f = open(c.get_policy_path())
+            l = f.readlines()
+            l.insert(0, 'block('+arguments['<ip>']+') # '+comment+'\n')
+            f.close()
+            f = open(c.get_policy_path(),'w')
+            f.writelines(l)
+            f.close()
 
-                # RCS checkin
-                if lib.config.get('global', 'use_rcs') == 'true':
-                    cmd = 'ci -u -m"block by faust" '+c.get_policy_path()
-                    sts = os.system(cmd)
-                    if sts:
-                        log.error('RCS checkin of '+c.get_policy_path()+' failed.')
-                        sys.exit(2)
+            # RCS checkin
+            if lib.config.get('global', 'use_rcs') == 'true':
+                cmd = 'ci -u -m"block by faust" '+c.get_policy_path()
+                sts = os.system(cmd)
+                if sts:
+                    log.error('RCS checkin of '+c.get_policy_path()+' failed.')
+                    sys.exit(2)
 
-                metacl.ACL.from_context(c).install()
-                log.info("Sucessfully blocked %s" % ip)
-        else:
-            log.error('No VLAN found for given IP. Aborting.')
-            sys.exit(2)
+            metacl.ACL.from_context(c).install()
+            log.info("Sucessfully blocked %s" % ip)
         
     elif arguments['rules']:
         try:

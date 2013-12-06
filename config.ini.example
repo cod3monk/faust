@@ -17,6 +17,10 @@ default_pol = example_config/default.pol
 #macro commands to be ignored by sanity_check
 ignore_macros = broadcast lan dns antiSpoof
 
+# The following vlan will be used by the block command by default, if no other
+# vlan could be found. This would typically be the internet gateway.
+# default_block_vlan = POLES 105
+
 # Logging configuration
 [loggers]
 keys = root, faust, routers, routersinfo
