@@ -29,10 +29,11 @@ os.chdir(os.path.split(__file__)[0])
 
 lib.config.load()
 
-assert len(sys.argv) == 3, 'Usage: %s <routing_domain> <base_config_file>' % sys.argv[0]
+assert len(sys.argv) == 4, 'Usage: %s <routing_domain> <router_name> <base_config_file>' % sys.argv[0]
 
 routingdomain = sys.argv[1]
-base_config = sys.argv[2]
+router_name = sys.argv[2]
+base_config = sys.argv[3]
 
 try:
     l = os.listdir(lib.config.get('global', 'policies_dir')+'/'+routingdomain)
@@ -45,6 +46,7 @@ vlans = map(lambda x: x[:-len(ext)], filter(lambda x: x.endswith(ext), l))
 assert len(vlans) > 0, 'No ACLs found for routing domain %s' % routingdomain
 
 ipv6_vlans = {}
+ifaces = {}
 
 acls = ''
 
@@ -58,6 +60,8 @@ for vlanid in vlans:
     acls += '!!-------%s%s------\n' % (routingdomain, vlanid)
     context = metacl.Context(routingdomain,vlanid)
     macl = context.get_acl()
+    assert router_name in macl.context.interfaces, "router_name could not be found in interface description."
+    ifaces[vlanid] = macl.context.interfaces[router_name]
     cfile, acl, ipv6 = macl.compile(timestamp=False)
     ipv6_vlans[vlanid] = ipv6
     acls += acl+'\n'
@@ -73,7 +77,7 @@ acls += '''
 '''
 
 for vlanid in vlans:
-    acls += 'interface vlan %s\n' % vlanid
+    acls += 'interface %s\n' % ifaces[vlanid]
     acls += 'ip access-group %s%s_IN in\n' % (routingdomain, vlanid)
     acls += 'ip access-group %s%s_OUT out\n' % (routingdomain, vlanid)
     if ipv6_vlans[vlanid]:

@@ -27,7 +27,7 @@ Usage:
   faust.py search <ip>
   faust.py rules <ip>
   faust.py create <routingdomain> <vlan_id>
-  faust.py trace <src_ip> <dst_ip>
+  faust.py trace <src_ip> <dst_ip> [-r]
   faust.py -h | --help
   faust.py --version
 
@@ -35,6 +35,7 @@ Options:
   -h --help     Show this screen.
   --version     Show version.
   -q --quiet    Quiet mode. Only errors are reported.
+  -r --reverse  Reverses direction of src_ip and dst_ip
 
 Commands:
     compile     Only compiles, no interation with router(s).
@@ -401,13 +402,13 @@ def main(arguments):
                 default = tuple(lib.config.get('global', 'default_block_vlan').split(' '))
             except:
                 default = None
-            
+
             if not default:
                 log.error('No VLAN found for given IP. Aborting. Set '+
                     'default_block_vlan in config to enable a default block VLAN.')
                 sys.exit(2)
-            
-            log.warning('No VLAN found for given IP. Making use of default VLAN: '+ 
+
+            log.warning('No VLAN found for given IP. Making use of default VLAN: '+
                 str(default)+'.')
             found = [default]
         elif len(found) > 1:
@@ -686,6 +687,8 @@ def main(arguments):
         try:
             src_ip = ipaddr.IPAddress(arguments['<src_ip>'])
             dst_ip = ipaddr.IPAddress(arguments['<dst_ip>'])
+            if arguments['--reverse']:
+                src_ip,dst_ip = dst_ip,src_ip
         except Exception, err:
             log.error(str(err))
             sys.exit(2)
@@ -721,17 +724,22 @@ def main(arguments):
             c = metacl.Context(rd, vlanid)
             acl = c.get_acl()
             acl.apply_macros()
-            rules = acl.get_rules(ip_versions=list(ip_versions))
+            rules = acl.get_rules(ip_versions=list(ip_versions), directions='in')
             #filter rules to match only when destination is dst_ip
             rules = filter(lambda x: any(map(lambda y: dst_ip in y,x.filter.destinations)),rules)
+            rules = filter(lambda x: any(map(lambda y: src_ip in y, x.filter.sources)), rules)
 
             print "From %s VLAN %s:" % (rd, vlanid)
             print "lineno  rule"
             linenos = []
             for r in rules:
-                f = r.filter
-                if r.lineno not in linenos and any(map(lambda x: src_ip in x, f.sources+f.destinations)):
-                    print '%s\t%s' % (r.lineno, r.sourceline.strip())
+                #f = r.filter
+                if r.lineno not in linenos: # and any(map(lambda x: src_ip in x, f.sources+f.destinations)):
+                    if 'permit ' not in r.sourceline and 'deny ' not in r.sourceline:
+                        info = ' ('+str(r)+')'
+                    else:
+                        info = ''
+                    print '%s\t%s%s' % (r.lineno, r.sourceline.strip(), info)
                     #to prevent same rule printed twice
                     linenos.append(r.lineno)
 
@@ -740,9 +748,10 @@ def main(arguments):
             c = metacl.Context(rd, vlanid)
             acl = c.get_acl()
             acl.apply_macros()
-            rules = acl.get_rules(ip_versions=list(ip_versions))
+            rules = acl.get_rules(ip_versions=list(ip_versions), directions='out')
             #filter rules to match only when source is src_ip
             rules = filter(lambda x: any(map(lambda y: src_ip in y,x.filter.sources)),rules)
+            rules = filter(lambda x: any(map(lambda y: dst_ip in y, x.filter.destinations)), rules)
 
             print
             print "From %s VLAN %s:" % (rd, vlanid)
@@ -750,8 +759,12 @@ def main(arguments):
             linenos = []
             for r in rules:
                 f = r.filter
-                if r.lineno not in linenos and any(map(lambda x: src_ip in x, f.sources+f.destinations)):
-                    print '%s\t%s' % (r.lineno, r.sourceline.strip())
+                if r.lineno not in linenos: # and any(map(lambda x: src_ip in x, f.sources+f.destinations)):
+                    if 'permit ' not in r.sourceline and 'deny ' not in r.sourceline:
+                        info = ' ('+str(r)+')'
+                    else:
+                        info = ''
+                    print '%s\t%s%s' % (r.lineno, r.sourceline.strip(), info)
                     #to prevent same rule printed twice
                     linenos.append(r.lineno)
 

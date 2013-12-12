@@ -612,9 +612,13 @@ class spawn (object):
         child_name = os.ttyname(tty_fd)
 
         # Disconnect from controlling tty if still connected.
-        fd = os.open("/dev/tty", os.O_RDWR | os.O_NOCTTY);
-        if fd >= 0:
-            os.close(fd)
+        try:
+          fd = os.open("/dev/tty", os.O_RDWR | os.O_NOCTTY);
+          if fd >= 0:
+              os.close(fd)
+        except:
+          # We are already disconnected: perhaps, running inside cron
+          pass
 
         os.setsid()
 

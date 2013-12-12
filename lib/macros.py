@@ -99,6 +99,9 @@ class nms(Macro):
             'permit icmp 131.188.4.0/24 local echo', 
             context=macl.context, parent=self))
         macl.acl_out.insert(0, metacl.Rule.from_string(
+            'permit udp 10.5.5.0/24 local 137', 
+            context=macl.context, parent=self))
+        macl.acl_out.insert(0, metacl.Rule.from_string(
             'permit udp 10.5.5.0/24 local 161', 
             context=macl.context, parent=self))
         macl.acl_out.insert(0, metacl.Rule.from_string(
@@ -116,6 +119,13 @@ class nms(Macro):
         macl.acl_out.insert(0, metacl.Rule.from_string(
             'permit ip 131.188.4.11 local', 
             context=macl.context, parent=self))
+        macl.acl_out.insert(0, metacl.Rule.from_string(
+            'permit ip 10.11.83.54 local', 
+            context=macl.context, parent=self))
+        macl.acl_out.insert(0, metacl.Rule.from_string(
+            'permit ip 10.11.215.150 local', 
+            context=macl.context, parent=self))
+
     
 class antiSpoof(Macro):
     '''Denies packets from "the outside" with local IPs and vice versa.'''
