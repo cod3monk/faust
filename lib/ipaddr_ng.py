@@ -7,7 +7,6 @@ This library extension aims to support the following ip notations:
 IPv4:
  * , Notation (127.0.0.1,6 -> includes 127.0.0.1 and 127.0.0.6)
  * - Notation (172.0.0.1-3 -> includes 172.0.0.1, 172.0.0.2 and 172.0.0.3)
- * * Notation (131.0.0.* -> equals to 131.0.0.0-254)
 '''
 
 from third_party import ipaddr
@@ -49,18 +48,16 @@ def IPv4Descriptor(desc):
         # Parsing non-standard notations:
         octets = addrblock.split('.')
         lastoct = octets[-1]
-        if lastoct == '*':
-            iplist.append(ipaddr.IPv4Network('.'.join(octets[:-1])+'.'+'0/24'))
-        else:
-            for block in lastoct.split(','):
-                if '-' in block:
-                    start,end = block.split('-')
-                    startaddr = ipaddr.IPv4Address('.'.join(octets[:-1])+'.'+start)
-                    endaddr = ipaddr.IPv4Address('.'.join(octets[:-1])+'.'+end)
-                    
-                    iplist += map(ipaddr.IPv4Address, range(int(startaddr),int(endaddr+1)))
-                else:
-                    iplist.append(ipaddr.IPv4Address('.'.join(octets[:-1])+'.'+block))
+
+        for block in lastoct.split(','):
+            if '-' in block:
+                start,end = block.split('-')
+                startaddr = ipaddr.IPv4Address('.'.join(octets[:-1])+'.'+start)
+                endaddr = ipaddr.IPv4Address('.'.join(octets[:-1])+'.'+end)
+                
+                iplist += map(ipaddr.IPv4Address, range(int(startaddr),int(endaddr+1)))
+            else:
+                iplist.append(ipaddr.IPv4Address('.'.join(octets[:-1])+'.'+block))
         
     return ipaddr.collapse_address_list(iplist)
 

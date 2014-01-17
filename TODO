@@ -1,9 +1,9 @@
+- repr/str von rule und filter verbessern
+- Klasse für iplist mit expand und collapse erstellen
+- Trace um ports, protokolle und verbindungen erweitern
+
 - Spaltenbreite bei search optimieren
 - Userfriendly Parser Errors
-- Fehlertolerantere Kommunikation mit Routern
-  - selbständiger rollback? nein!
-  - user aber über Zustand nach Abbruch informieren
-- Trace (faust.py trace) through ACLs
 - read-only webinterface
 - DOKUMENTATION
 - paketieren

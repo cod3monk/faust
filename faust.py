@@ -734,7 +734,7 @@ def main(arguments):
             linenos = []
             for r in rules:
                 #f = r.filter
-                if r.lineno not in linenos: # and any(map(lambda x: src_ip in x, f.sources+f.destinations)):
+                if r.lineno not in linenos:
                     if 'permit ' not in r.sourceline and 'deny ' not in r.sourceline:
                         info = ' ('+str(r)+')'
                     else:
@@ -759,7 +759,7 @@ def main(arguments):
             linenos = []
             for r in rules:
                 f = r.filter
-                if r.lineno not in linenos: # and any(map(lambda x: src_ip in x, f.sources+f.destinations)):
+                if r.lineno not in linenos:
                     if 'permit ' not in r.sourceline and 'deny ' not in r.sourceline:
                         info = ' ('+str(r)+')'
                     else:

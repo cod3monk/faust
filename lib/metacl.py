@@ -78,24 +78,63 @@ class ProtocolDoesNotSupportPorts(Error, Trackable):
     '''One of the protocols does not support ports, but ports were given.'''
 
 class Ports:
-    '''Ports and Port range handeling in one object'''
-    def __init__(self, ports=None, ranges=None):
-        if ranges:
-            self.ranges = ranges
-        else:
-            self.ranges = []
+    '''Ports list and range handeling in one object'''
+    def __init__(self, arg=None):
+        '''Forms a combination of individual ports and ranges.
         
-        if ports:
-            self.ports = ports
+        If *args* is instance of tuple, the first element must be a list of port 
+        integers and the second a list of port range tupels:
+        >>> Ports( ([23,42], [(1,5), (100,200)]) ).__str__()
+        "23,42,1-5,100-200"
+        
+        If *args* is instance of list, it must be a list of port integers:
+        >>> Ports( [23,42] ).__str__()
+        "23,42"
+        
+        If *args* is instance of str or unicode, it must be a comma seperated 
+        string of individual port numbers and port ranges (e.g. "1-1024"):
+        >>> Ports( "23,42,256-1024" )
+        Ports(([23,42],[256,1024]))
+        
+        Otherwise, an empty list/range will be created:
+        >>> Ports()
+        Ports([])
+        '''
+        if isinstance(arg, tuple):
+            assert isinstance(arg[0], list) and isinstance(arg[1], list), \
+                "The tuple must contain two lists."
+            self.singles = arg[0]
+            self.ranges = arg[1]
+        elif isinstance(arg, list):
+            self.singles = arg
+            self.ranges = []
+        elif isinstance(arg, (str, unicode)):
+            # Empty initialization
+            self.singles = []
+            self.ranges = []
+            
+            # First we build a set with all matching port numbers:
+            s = arg.split(',')
+
+            for ports_str in s:
+                if '-' in ports_str:
+                    range_str = ports_str.split('-')
+                    self.add_range(int(range_str[0]), int(range_str[1]))
+                else:
+                    self.add_port(int(ports_str))
         else:
-            self.ports = []
+            self.singles = []
+            self.ranges = []
     
     def add_port(self, port):
         # Only add port if not yet existant
         if port not in self:
-            self.ports.append(port)
+            self.singles.append(port)
     
     def add_range(self, start, end):
+        assert start <= end, "range has to be given in increasing order "+ \
+            "(e.g. NOT 42 to 23, but 23 to 42)"
+        
         # Finding overlaping and neighboring ranges
         for r in self.ranges:
             if r[0] <= end and r[1] >= start:
@@ -105,20 +144,21 @@ class Ports:
                 self.ranges.remove(r)
         
         # Finding included ports
-        self.ports = filter(lambda n: start > n or n > end, self.ports)
+        self.singles = filter(lambda n: start > n or n > end, self.singles)
         
         # Adding range
         self.ranges.append((start, end))
     
     def to_tuples(self):
-        data = map(lambda x: ('eq', x), self.ports)
+        '''Cisco style notation, in tuple form.'''
+        data = map(lambda x: ('eq', x), self.singles)
         data += map(lambda x: ('range', (x[0], x[1])), self.ranges)
         
         return data
         
     def __contains__(self, port):
         # Find in single ports:
-        if port in self.ports:
+        if port in self.singles:
             return True
         
         # Find in port ranges:
@@ -129,28 +169,10 @@ class Ports:
         # Not found
         return False
     
-    @classmethod
-    def from_string(cls, s):
-        '''Parses port description *s* and returns approriate list.
-        *s* must have the following syntax: 23-80,443'''
-        ports = cls()
-
-        # First we build a set with all matching port numbers:
-        s = s.split(',')
-
-        for ports_str in s:
-            if '-' in ports_str:
-                range_str = ports_str.split('-')
-                ports.add_range(int(range_str[0]), int(range_str[1]))
-            else:
-                ports.add_port(int(ports_str))
-
-        return ports
-    
-    def to_string(self):
-        '''Returns string which can be parsed by from_string() method.'''
+    def __str__(self):
+        '''Returns string which can be parsed by __init__() method.'''
         s = ''
-        for p in self.ports:
+        for p in self.singles:
             if len(s) > 0:
                 s += ','
             s += '%s' % p
@@ -163,27 +185,35 @@ class Ports:
         return s
     
     def __iter__(self):
-        for p in self.ports:
+        for p in self.singles:
             yield p
         for r in self.ranges:
             for p in range(r[0], r[1]+1):
                 yield p
                 
     def __bool__(self):
-        return bool(self.ports) or bool(self.ranges)
+        return bool(self.singles) or bool(self.ranges)
     __nonzero__=__bool__
+    
+    def __eq__(self, other):
+        return set(other.ports)^set(self.singles) == set() and \
+            set(other.ranges)^set(self.ranges) == set()
     
     def __len__(self):
         # Returns total number of ports
         s = sum(map(lambda x, y: y-x+1, self.ranges))
-        return len(self.ports)+s
+        return len(self.singles)+s
         
     def __repr__(self):
-        if self.ranges:
-            return self.__class__.__name__+'(%r, ranges=%r)' % \
-                (self.ports, self.ranges)
+        if not self.ranges and not self.singles:
+            return self.__class__.__name__+'()'
+        if not self.ranges:
+            return self.__class__.__name__+'(%r)' % self.singles
         else:
-            return self.__class__.__name__+'(%r)' % self.ports
+            return self.__class__.__name__+'((%r, %r))' % \
+                (self.singles, self.ranges)
+
+# TODO IPs version of Ports
 
 def string_to_ips(string, context=None, temp_aliases=None):
     '''Parses ip description *string* and returns approriate list of
@@ -1079,7 +1109,7 @@ class Filter(Trackable):
 
         self.protocols = protocols # protocols (e.g. ip, tcp)
         if type(sports) is str:
-            self.sports = Ports.from_string(sports)
+            self.sports = Ports(sports)
         elif sports is None:
             self.sports = Ports()
         elif isinstance(sports, Ports):
@@ -1088,7 +1118,7 @@ class Filter(Trackable):
             raise ValueError('sports has to be of either str, Ports or None type.')
             
         if type(dports) is str:
-            self.dports = Ports.from_string(dports)
+            self.dports = Ports(dports)
         elif dports is None:
             self.dports = Ports()
         elif isinstance(dports, Ports):
@@ -1174,7 +1204,7 @@ class Filter(Trackable):
 
         # Also checking if sufficient elements are left
         if len(string) and re.match(r'^[0-9\-,]+$', string[-1]) != None:
-            dports = Ports.from_string(string.pop())
+            dports = Ports(string.pop())
         else:
             dports = Ports()
 
@@ -1210,10 +1240,10 @@ class Filter(Trackable):
         return False
 
     def __str__(self):
-        return str(self.protocols)+' '+str(self.sources)+' '+str(self.sports.to_string())+' ' \
-            +str(self.destinations)+' '+str(self.dports.to_string())
+        return str(self.protocols)+' '+str(self.sources)+' '+str(self.sports)+' ' \
+            +str(self.destinations)+' '+str(self.dports)
 
     def __repr__(self):
-        #return '<metacl.Filter '+self.name+' '+str(self.sources)+' '+str(self.sports.to_string())+' ' \
-        #    +str(self.destinations)+' '+str(self.dports.to_string())+'>'
+        #return '<metacl.Filter '+self.name+' '+str(self.sources)+' '+str(self.sports)+' ' \
+        #    +str(self.destinations)+' '+str(self.dports)+'>'
         return str(self)
