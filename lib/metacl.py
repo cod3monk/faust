@@ -37,7 +37,7 @@ from __init__ import config
 ip_versions = ['ipv4', 'ipv6']
 
 # Protocol names
-protocol_names = ['tcp','udp','ip','icmp','esp','ahp','pim','igmp','ospf']
+protocol_names = ['tcp','udp','ip','icmp','esp','ahp','pim','igmp','ospf','gre']
 # Protocol names that support ports (they must still apprear above)
 port_protocols = ['tcp','udp']
 
@@ -196,7 +196,7 @@ class Ports:
     __nonzero__=__bool__
     
     def __eq__(self, other):
-        return set(other.ports)^set(self.singles) == set() and \
+        return set(other.singles)^set(self.singles) == set() and \
             set(other.ranges)^set(self.ranges) == set()
     
     def __len__(self):
@@ -1190,7 +1190,7 @@ class Filter(Trackable):
         # Is the following a port? Port descreption may only contain numbers, commas and dashes
         # IPs will not match, as they must contain dots or colons
         if re.match(r'^[0-9\-,]+$', string[-1]) != None:
-            sports = Ports.from_string(string.pop())
+            sports = Ports(string.pop())
         else:
             sports = Ports()
 

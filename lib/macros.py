@@ -230,7 +230,7 @@ class dhcp6(Macro):
             metacl.Filter(['udp'], 
                 macl.context.get_alias('local'), 
                 first, 
-                dports=metacl.Ports.from_string('546,547'),
+                dports=metacl.Ports('546,547'),
                 parent=self), parent=self))
  
 class dhcp(Macro):
@@ -323,13 +323,13 @@ class domain(Macro):
                 metacl.Filter(['tcp','udp'], 
                     macl.context.get_alias('local'), 
                     IPv4Descriptor(ip), 
-                    dports=metacl.Ports.from_string('53'), parent=self), parent=self))
+                    dports=metacl.Ports('53'), parent=self), parent=self))
             
             out_acl.append(metacl.Rule('permit', 
                 metacl.Filter(['tcp','udp'], 
                     IPv4Descriptor(ip), 
                     macl.context.get_alias('local'), 
-                    sports=metacl.Ports.from_string('53'), parent=self), parent=self))
+                    sports=metacl.Ports('53'), parent=self), parent=self))
         
         macl.acl_in = in_acl + macl.acl_in
         macl.acl_out = out_acl + macl.acl_out
@@ -350,25 +350,25 @@ class dns(Macro):
                     metacl.Filter(['tcp','udp'], 
                         macl.context.get_alias('local'), 
                         IPv4Descriptor(ip), 
-                        dports=metacl.Ports.from_string('53'), parent=self), parent=self))
+                        dports=metacl.Ports('53'), parent=self), parent=self))
 
                 macl.acl_out.insert(0,metacl.Rule('permit',
                     metacl.Filter(['tcp','udp'], 
                         IPv4Descriptor(ip), 
                         macl.context.get_alias('local'), 
-                        sports=metacl.Ports.from_string('53'), parent=self), parent=self))
+                        sports=metacl.Ports('53'), parent=self), parent=self))
 
         macl.acl_in.insert(0,metacl.Rule('permit',
             metacl.Filter(['tcp','udp'],
                 macl.context.get_alias('local'),
                 macl.context.get_alias('dns_server'),
-                dports=metacl.Ports.from_string('53'), parent=self), parent=self))
+                dports=metacl.Ports('53'), parent=self), parent=self))
 
         macl.acl_out.insert(0,metacl.Rule('permit',
             metacl.Filter(['tcp','udp'],
                 macl.context.get_alias('dns_server'),
                 macl.context.get_alias('local'),
-                sports=metacl.Ports.from_string('53'), parent=self), parent=self))
+                sports=metacl.Ports('53'), parent=self), parent=self))
 
 class wlan(Macro):
     # opens local lan to wlan-controller
@@ -431,28 +431,28 @@ class netbackup(Macro):
                     metacl.Filter(['tcp'], 
                     h, 
                     macl.context.get_alias('netbackup'), 
-                    sports=metacl.Ports.from_string('13782'),
+                    sports=metacl.Ports('13782'),
                     parent=self), extensions=['established'], parent=self))
                 
                 macl.acl_in.insert(0, metacl.Rule('permit', 
                     metacl.Filter(['tcp'], 
                     h, 
                     macl.context.get_alias('netbackup'), 
-                    dports=metacl.Ports.from_string('13720,13724,13782'),
+                    dports=metacl.Ports('13720,13724,13782'),
                     parent=self), parent=self))
                 
                 macl.acl_out.insert(0, metacl.Rule('permit', 
                     metacl.Filter(['tcp'], 
                     macl.context.get_alias('netbackup'), 
                     h, 
-                    sports=metacl.Ports.from_string('13720,13724,13782'),
+                    sports=metacl.Ports('13720,13724,13782'),
                     parent=self), extensions=['established'], parent=self))
                 
                 macl.acl_out.insert(0, metacl.Rule('permit', 
                     metacl.Filter(['tcp'], 
                     macl.context.get_alias('netbackup'), 
                     h,
-                    dports=metacl.Ports.from_string('13782'),
+                    dports=metacl.Ports('13782'),
                     parent=self), parent=self))
 
 
@@ -541,7 +541,7 @@ class license(Macro):
             'permit udp $license 5093 local',     
             context=macl.context, parent=self))
         macl.acl_out.insert(0, metacl.Rule.from_string(
-            'permit tcp $license local 1700-1799,16286',  
+            'permit tcp $license 1700-1799,16286 local 1024-65535',  
             context=macl.context, parent=self))
 
 

@@ -211,7 +211,7 @@ def ports_to_acl_string(ports):
     '''Takes a Ports object and returns a list of cisco acl descriptions'''
     l = []
 
-    for p in ports.ports:
+    for p in ports.singles:
         l.append(' eq %s' % p)
     for r in ports.ranges:
         l.append(' range %s %s' % r)
