@@ -641,9 +641,9 @@ class ACL(Trackable):
                 ret += map(lambda r2:('Rule never reached',d,r2,acl[i]),
                     filter(lambda x:x.filter in acl[i].filter
                     and x.filter.protocols == acl[i].filter.protocols
-                    and (((x.filter.sports or acl[i].filter.sports) == [])
+                    and (((x.filter.sports or acl[i].filter.sports) == Ports())
                     or filter(x.filter.sports.__contains__, acl[i].filter.sports))
-                    and (((x.filter.dports or acl[i].filter.dports) == [])
+                    and (((x.filter.dports or acl[i].filter.dports) == Ports())
                     or filter(x.filter.dports.__contains__, acl[i].filter.dports))
                     ,acl[i+1:]))
 
@@ -663,9 +663,9 @@ class ACL(Trackable):
                 ret += map(lambda r2:('Rules overlaps',d,acl[i],r2),
                     filter(lambda x:acl[i].filter.overlaps(x.filter)
                     and x.filter.protocols == acl[i].filter.protocols
-                    and (((x.filter.sports or acl[i].filter.sports) == [])
+                    and (((x.filter.sports or acl[i].filter.sports) == Ports())
                     or filter(x.filter.sports.__contains__, acl[i].filter.sports))
-                    and (((x.filter.dports or acl[i].filter.dports) == [])
+                    and (((x.filter.dports or acl[i].filter.dports) == Ports())
                     or filter(x.filter.dports.__contains__, acl[i].filter.dports))
                     ,acl[i+1:]))
 
@@ -681,9 +681,9 @@ class ACL(Trackable):
                     filter(lambda x:acl[i].filter in x.filter and
                     acl[i].action == x.action
                     and x.filter.protocols == acl[i].filter.protocols
-                    and (((x.filter.sports or acl[i].filter.sports) == [])
+                    and (((x.filter.sports or acl[i].filter.sports) == Ports())
                     or filter(x.filter.sports.__contains__, acl[i].filter.sports))
-                    and (((x.filter.dports or acl[i].filter.dports) == [])
+                    and (((x.filter.dports or acl[i].filter.dports) == Ports())
                     or filter(x.filter.dports.__contains__, acl[i].filter.dports))
                     ,acl[i+1:]))
 
