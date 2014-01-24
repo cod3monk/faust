@@ -729,7 +729,7 @@ class Context(object):
 
     def __init__(self, routingdomain=None, vlanid=None):
         self.routingdomain = routingdomain
-        self.vlanid = vlanid
+        self.vlanid = str(vlanid)
         self.interfaces = {}
 
         # Find and read host alias configuration
@@ -765,7 +765,7 @@ class Context(object):
         # Default interface name if nothing was specified in TNETs: 'Vlan'+vlanid
         for r in self.routers:
             if r['name'] not in self.interfaces:
-                self.interfaces[r['name']] = 'Vlan'+vlanid
+                self.interfaces[r['name']] = 'Vlan'+self.vlanid
 
         router_connections = None
 
@@ -1085,11 +1085,19 @@ class Rule(Trackable):
         return cls(action, filter, extensions, filename, lineno, parent)
 
     def __str__(self):
-        return self.action+' '+str(self.filter)+' '+' '.join(self.extensions)
+        if self.extensions:
+            return self.action+' '+str(self.filter)+' '+' '.join(self.extensions)
+        else:
+            return self.action+' '+str(self.filter)
 
     def __repr__(self):
-        #return '<metacl.Rule '+self.action+' '+str(self.filter)+' '+str(self.extensions)+'>'
-        return str(self)
+        # TODO include filename, lineno and parent in output
+        if self.extensions:
+            return self.__class__.__name__+'(%s, %s, %s)' % \
+                (self.action, self.filter.__repr__(), self.extensions)
+        else:
+            return self.__class__.__name__+'(%s, %s)' % \
+                (self.action, self.filter.__repr__())
 
 class Filter(Trackable):
     '''Describes a filter under which condition a Rule applies.
@@ -1240,10 +1248,18 @@ class Filter(Trackable):
         return False
 
     def __str__(self):
-        return str(self.protocols)+' '+str(self.sources)+' '+str(self.sports)+' ' \
-            +str(self.destinations)+' '+str(self.dports)
+        if self.sports or self.dports:
+            return ','.join(self.protocols)+' '+';'.join(map(str, self.sources))+' '+ \
+                str(self.sports)+' '+';'.join(map(str, self.destinations))+' '+str(self.dports)
+        else:
+            return ','.join(self.protocols)+' '+';'.join(map(str, self.sources))+' ' \
+                +';'.join(map(str, self.destinations))
 
     def __repr__(self):
-        #return '<metacl.Filter '+self.name+' '+str(self.sources)+' '+str(self.sports)+' ' \
-        #    +str(self.destinations)+' '+str(self.dports)+'>'
-        return str(self)
+        # TODO include filename, lineno and parent in output
+        if self.sports or self.dports:
+            return self.__class__.__name__+'(%s, %s, %s, sports=%s, dports=%s)' % \
+                (self.protocols, self.sources, self.destinations, self.sports, self.dports)
+        else:
+            return self.__class__.__name__+'(%s, %s, %s)' % \
+                (self.protocols, self.sources, self.destinations)
