@@ -1,101 +1,146 @@
 #!/usr/bin/env python
-#
 # FAUST2 - a network ACL compiler and ditribution system.
 # Copyright (C) 2013  Julian Hammer <julian.hammer@u-sys.org>
-# 
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+"""Implements abstraction of ACLs and information requierd to interpret it.
+
+Everything required to parse, abstract and store the core of ACLs and related
+information is part of the `metacl` module.
+
+Classes:
+`ACL` parses, checks and installs access control lists.
+`Context` stores all information required to fully interpret an `ACL`.
+`Rule` parses one line and defines the action to be taken if `Filter` matches.
+`Filter` parses filter section in `Rule` and allows comparsion.
+`MacroCall` parses and interprets calls to macros from `ACL`.
+`Ports` abstracts arbitrary port lists made up of individual entries and ranges.
+
+Functions:
+`string_to_ips` parses IP string and returns list of `ipaddr.IPv4Network` and `ipaddr.IPv6Network`.
+
+Exceptions:
+`Error`, base class for all `metacl` exceptions
+`IPVersionMissmatchError` raised if a filter's source and destination are not of same IP version.
+`MacroDoesNotExistError` raised if requested macro does not exist.
+`VLANDoesNotExistError` raised if VLAN couldn't be found in VLANs file.
+`VLANDescriptionError` raised if description in VLANs file is faulty.
+`NeedsContextError` raied if no context was provided, but aliases are used by `ACL`.
+`InvalidACLError` raised if `ACL` could not parse the given string or file.
+`UnknownRoutingdomainError` raised if routingdomain is unknown.
+`UnknownRouterError` rased if router is unknown.
+`ProtocolDoesNotSupportPortsError` raised if ports were given and protocol does not support ports.
+
+Constants:
+`IP_VERSIONS` list of supported IP versions (e.g. 'ipv6').
+`PROTOCOL_NAMES` list of supported protocol names (e.g. 'icmp').
+`PORT_PROTOCOLS` list of protocols that support ports (e.g. 'tcp').
+`EXTENSION_NAMES` list of supported extensions (e.g. 'established')
+`DIRECTIONS` list of directions ('in' and 'out')
+"""
+
 from pprint import pformat
 import re
-import logging
-log = logging.getLogger('lib.metacl')
 import os
 import itertools
 import difflib
 
+import ConfigParser
+
+from third_party.ipaddr import IPv4Network, IPv6Network, AddressValueError, NetmaskValueError
+
 import ipaddr_ng
 from ipaddr_ng import IPv4Descriptor, IPv6Descriptor, IPDescriptor
-from third_party.ipaddr import IPv4Network, IPv6Network, AddressValueError, NetmaskValueError
 from helpers import Trackable
 import macros
-
-import ConfigParser
+import logging
 from __init__ import config
 
+log = logging.getLogger('lib.metacl')
+
 # IP Version names
-ip_versions = ['ipv4', 'ipv6']
-
+IP_VERSIONS = ['ipv4', 'ipv6']
 # Protocol names
-protocol_names = ['tcp','udp','ip','icmp','esp','ahp','pim','igmp','ospf','gre']
+PROTOCOL_NAMES = ['tcp', 'udp', 'ip', 'icmp', 'esp', 'ahp', 'pim', 'igmp', 'ospf', 'gre']
 # Protocol names that support ports (they must still apprear above)
-port_protocols = ['tcp','udp']
-
+PORT_PROTOCOLS = ['tcp', 'udp']
 # Extension names
-extension_names = ['established', 'log', 'echo', 'echo-reply', 'ttl-exceeded']
-
+EXTENSION_NAMES = ['established', 'log', 'echo', 'echo-reply', 'ttl-exceeded']
 # Directions
-directions = ['in', 'out']
+DIRECTIONS = ['in', 'out']
+
 
 class Error(Exception):
     """Base class for exceptions in this module."""
 
+
 class IPVersionMissmatchError(Error, Trackable):
     '''Rule needs source and destination filters of same IP version.'''
 
-class MacroDoesNotExist(Error, Trackable):
+
+class MacroDoesNotExistError(Error, Trackable):
     '''The requested macro does not exist.'''
 
-class VLANDoesNotExist(Error):
+
+class VLANDoesNotExistError(Error):
     '''The VLAN couldn't be found in VLANs file.'''
+
 
 class VLANDescriptionError(Error):
     '''Description in VLANs file is faulty.'''
 
-class NeedsContext(Error, Trackable):
+
+class NeedsContextError(Error, Trackable):
     '''No context was provided, but aliases are used. Can not proceed.'''
 
-class InvalidACL(Error, Trackable):
+
+class InvalidACLError(Error, Trackable):
     '''ACL file/string is invalid.'''
 
-class UnknownRoutingdomain(Error):
+
+class UnknownRoutingdomainError(Error):
     '''Requested routingdomain is unknown.'''
 
-class UnknownRouter(Error):
+
+class UnknownRouterError(Error):
     '''Requested router is unknown.'''
 
-class ProtocolDoesNotSupportPorts(Error, Trackable):
+
+class ProtocolDoesNotSupportPortsError(Error, Trackable):
     '''One of the protocols does not support ports, but ports were given.'''
+
 
 class Ports:
     '''Ports list and range handeling in one object'''
     def __init__(self, arg=None):
         '''Forms a combination of individual ports and ranges.
-        
-        If *args* is instance of tuple, the first element must be a list of port 
+
+        If *args* is instance of tuple, the first element must be a list of port
         integers and the second a list of port range tupels:
         >>> Ports( ([23,42], [(1,5), (100,200)]) ).__str__()
         "23,42,1-5,100-200"
-        
+
         If *args* is instance of list, it must be a list of port integers:
         >>> Ports( [23,42] ).__str__()
         "23,42"
-        
-        If *args* is instance of str or unicode, it must be a comma seperated 
+
+        If *args* is instance of str or unicode, it must be a comma seperated
         string of individual port numbers and port ranges (e.g. "1-1024"):
         >>> Ports( "23,42,256-1024" )
         Ports(([23,42],[256,1024]))
-        
+
         Otherwise, an empty list/range will be created:
         >>> Ports()
         Ports([])
@@ -112,7 +157,7 @@ class Ports:
             # Empty initialization
             self.singles = []
             self.ranges = []
-            
+
             # First we build a set with all matching port numbers:
             s = arg.split(',')
 
@@ -125,16 +170,16 @@ class Ports:
         else:
             self.singles = []
             self.ranges = []
-    
+
     def add_port(self, port):
         # Only add port if not yet existant
         if port not in self:
             self.singles.append(port)
-    
+
     def add_range(self, start, end):
-        assert start <= end, "range has to be given in increasing order "+ \
+        assert start <= end, "range has to be given in increasing order " + \
             "(e.g. NOT 42 to 23, but 23 to 42)"
-        
+
         # Finding overlaping and neighboring ranges
         for r in self.ranges:
             if r[0] <= end and r[1] >= start:
@@ -142,33 +187,33 @@ class Ports:
                 start = min(r[0], start)
                 end = max(r[1], end)
                 self.ranges.remove(r)
-        
+
         # Finding included ports
         self.singles = filter(lambda n: start > n or n > end, self.singles)
-        
+
         # Adding range
         self.ranges.append((start, end))
-    
+
     def to_tuples(self):
         '''Cisco style notation, in tuple form.'''
         data = map(lambda x: ('eq', x), self.singles)
         data += map(lambda x: ('range', (x[0], x[1])), self.ranges)
-        
+
         return data
-        
+
     def __contains__(self, port):
         # Find in single ports:
         if port in self.singles:
             return True
-        
+
         # Find in port ranges:
         for r in self.ranges:
             if port <= r[1] and port >= r[0]:
                 return True
-        
+
         # Not found
         return False
-    
+
     def __str__(self):
         '''Returns string which can be parsed by __init__() method.'''
         s = ''
@@ -176,57 +221,136 @@ class Ports:
             if len(s) > 0:
                 s += ','
             s += '%s' % p
-        
+
         for r in self.ranges:
             if len(s) > 0:
                 s += ','
             s += '%s-%s' % r
-        
+
         return s
-    
+
     def __iter__(self):
         for p in self.singles:
             yield p
         for r in self.ranges:
-            for p in range(r[0], r[1]+1):
+            for p in range(r[0], r[1] + 1):
                 yield p
-                
+
     def __bool__(self):
         return bool(self.singles) or bool(self.ranges)
-    __nonzero__=__bool__
-    
+    __nonzero__ = __bool__
+
     def __eq__(self, other):
-        return set(other.singles)^set(self.singles) == set() and \
-            set(other.ranges)^set(self.ranges) == set()
-    
+        return set(other.singles) ^ set(self.singles) == set() and \
+            set(other.ranges) ^ set(self.ranges) == set()
+
     def __len__(self):
         # Returns total number of ports
-        s = sum(map(lambda x, y: y-x+1, self.ranges))
-        return len(self.singles)+s
-        
+        s = sum(map(lambda x, y: y - x + 1, self.ranges))
+        return len(self.singles) + s
+
     def __repr__(self):
         if not self.ranges and not self.singles:
-            return self.__class__.__name__+'()'
+            return self.__class__.__name__ + '()'
         if not self.ranges:
-            return self.__class__.__name__+'(%r)' % self.singles
+            return self.__class__.__name__ + '(%r)' % self.singles
         else:
-            return self.__class__.__name__+'((%r, %r))' % \
-                (self.singles, self.ranges)
+            return self.__class__.__name__ + '((%r, %r))' % (self.singles, self.ranges)
+
 
 # TODO IPs version of Ports
+class IPs:
+    def __init__(self, singles=None, ranges=None):
+        if singles:
+            self.singles = singles
+        else:
+            self.singles = []
+
+        if ranges:
+            self.ranges = ranges
+        else:
+            self.ranges = []
+
+    def add_single(self, single):
+        # Only add if not yet existant
+        # TODO find ranges where this could be applied to
+        # Careful: join of ranges might be required!
+        if single not in self:
+            self.singles.append(single)
+
+    def add_range(self, start, end):
+        assert start <= end, "range has to be given in increasing order " + \
+            "(e.g. NOT 42 to 23, but 23 to 42)"
+
+        # Finding overlaping and neighboring ranges
+        for r in self.ranges:
+            if r[0] <= end and r[1] >= start:
+                # deleting range and (possibly) increasing size of new range
+                start = min(r[0], start)
+                end = max(r[1], end)
+                self.ranges.remove(r)
+
+        # Finding included ports
+        self.singles = filter(lambda n: start > n or n > end, self.singles)
+
+        # Adding range
+        self.ranges.append((start, end))
+
+    def __contains__(self, port):
+        # Find in single ports:
+        if port in self.singles:
+            return True
+
+        # Find in port ranges:
+        for r in self.ranges:
+            if port <= r[1] and port >= r[0]:
+                return True
+
+        # Not found
+        return False
+
+    def __iter__(self):
+        for p in self.singles:
+            yield p
+        for r in self.ranges:
+            for p in range(r[0], r[1] + 1):
+                yield p
+
+    def __bool__(self):
+        return bool(self.singles) or bool(self.ranges)
+    __nonzero__ = __bool__
+
+    def __eq__(self, other):
+        return set(other.singles) ^ set(self.singles) == set() and \
+            set(other.ranges) ^ set(self.ranges) == set()
+
+    def __len__(self):
+        # Returns total number of ports
+        s = sum(map(lambda x, y: y - x + 1, self.ranges))
+        return len(self.singles) + s
+
+    def __repr__(self):
+        if not self.ranges and not self.singles:
+            return self.__class__.__name__ + '()'
+        if not self.ranges:
+            return self.__class__.__name__ + '(%r)' % self.singles
+        else:
+            return self.__class__.__name__ + '(%r, %r)' % (self.singles, self.ranges)
+
 
 def string_to_ips(string, context=None, temp_aliases=None):
     '''Parses ip description *string* and returns approriate list of
     IPv4Network and IPv6Network objects.
     Resolves aliases using temp_aliases and context object.
 
-    If alias is found, and context is None, a NeedsContext exception will be thrown.'''
+    If alias is found, and context is None, a NeedsContextError exception will be thrown.'''
 
     ips = []
     if string[0] == '$' or string.startswith("any") or string.startswith("local"):
         # Check for context
         if not context and not temp_aliases:
-            raise NeedsContext('Can not resolve host/net aliases without context or temp_aliases.')
+            raise NeedsContextError('Can not resolve host/net aliases without context or ' +
+                                    'temp_aliases.')
 
         name = string.replace("$", "")
 
@@ -251,6 +375,7 @@ def string_to_ips(string, context=None, temp_aliases=None):
     else:
         return IPDescriptor(string)
 
+
 class ACL(Trackable):
     '''Represents a parsed Policy File, containing Rules for IN, OUT and
        MacroCalls
@@ -262,7 +387,7 @@ class ACL(Trackable):
     macros_applied = False
 
     def __init__(self, acl_in=[], acl_out=[], macros=[], context=None,
-        filename=None, parent=None):
+                 filename=None, parent=None):
         self.macros = macros
         self.acl_in = acl_in
         self.acl_out = acl_out
@@ -279,13 +404,13 @@ class ACL(Trackable):
 
         # Removing lines which are blank or contain only comments
         # Line numbers are preserved
-        lines = filter(lambda x: not len(x[1].strip()) == 0
-            and not x[1].strip().startswith('#'), lines)
+        lines = filter(lambda x: not len(x[1].strip()) == 0 and not x[1].strip().startswith('#'),
+                       lines)
         # Strip all leading and ending whitespaces from lines
         lines = map(lambda x: (x[0], x[1].strip()), lines)
 
         if len(lines) == 0:
-            err = InvalidACL('ACL can not be empty!')
+            err = InvalidACLError('ACL can not be empty!')
             Trackable.__init__(err, filename=filename, parent=parent)
             raise err
 
@@ -295,33 +420,32 @@ class ACL(Trackable):
         acl_out = []
         try:
             # Find beginning of in-block by locating "IN:" line
-            index_in = next((i for i in xrange(len(lines) - 1, -1, -1) \
-                if lines[i][1] == 'IN:'), None)
+            index_in = next((i for i in xrange(len(lines) - 1, -1, -1) if lines[i][1] == 'IN:'),
+                            None)
             # Find beginning of out-block by locating "OUT:" line
-            index_out = next((i for i in xrange(len(lines) - 1, -1, -1) \
-                if lines[i][1] == 'OUT:'), None)
+            index_out = next((i for i in xrange(len(lines) - 1, -1, -1) if lines[i][1] == 'OUT:'),
+                             None)
 
             # Macros are infront of in-block
             macros = lines[:index_in]
 
-            acl_in = lines[index_in+1:index_out]
-            acl_out = lines[index_out+1:]
+            acl_in = lines[index_in + 1:index_out]
+            acl_out = lines[index_out + 1:]
 
         # Index search returned unsuccessful
         except:
-            err = InvalidACL('IN and OUT sections could not be found in ACL.')
+            err = InvalidACLError('IN and OUT sections could not be found in ACL.')
             Trackable.__init__(err, filename=filename, parent=parent)
             raise err
 
         # Create Rule objects from *lines*
         # Macros via MarcoCall.from_string()
-        macros = map(lambda x: MacroCall.from_string(x[1], lineno=x[0],
-            filename=filename), macros)
+        macros = map(lambda x: MacroCall.from_string(x[1], lineno=x[0], filename=filename), macros)
         # In/Out rules via Rule.from_string()
-        acl_in = map(lambda x: Rule.from_string(x[1], context,
-            lineno=x[0], filename=filename), acl_in)
-        acl_out = map(lambda x: Rule.from_string(x[1], context,
-            lineno=x[0], filename=filename), acl_out)
+        acl_in = map(lambda x: Rule.from_string(x[1], context, lineno=x[0], filename=filename),
+                     acl_in)
+        acl_out = map(lambda x: Rule.from_string(x[1], context, lineno=x[0], filename=filename),
+                      acl_out)
 
         # Return class object
         return cls(acl_in, acl_out, macros, context, filename, parent)
@@ -343,7 +467,7 @@ class ACL(Trackable):
         '''Applies MacroCalls in topological order to this ACL object'''
 
         if not self.context:
-            raise NeedsContext('Macros can only applied in a context!')
+            raise NeedsContextError('Macros can only applied in a context!')
 
         if self.macros_applied:
             raise Error('Macros can only be applied once!')
@@ -356,14 +480,15 @@ class ACL(Trackable):
         # Remove dependencies which do not apply, e.g. dhcp depends on
         # broadcast, but broadcast is not used
         for m in macros_sorted:
-            m.macro.dependencies = filter(lambda x: x in map(lambda x: \
-                type(x.macro), macros_sorted), m.macro.dependencies)
+            m.macro.dependencies = filter(lambda x: x in map(lambda x: type(x.macro),
+                                                             macros_sorted),
+                                          m.macro.dependencies)
 
         # Execute in topological order
         while len(macros_sorted) > 0:
             # Sort macros by number of dependencies, in increasing order
-            macros_sorted = sorted(macros_sorted,
-                key=lambda x: len(x.macro.dependencies), reverse=True)
+            macros_sorted = sorted(macros_sorted, key=lambda x: len(x.macro.dependencies),
+                                   reverse=True)
 
             # Get one macro
             m = macros_sorted.pop()
@@ -381,8 +506,7 @@ class ACL(Trackable):
                         pass
             else:
                 raise macros.UnresolvableDependencies(
-                    "Couldn't resolve dependencies for macro: "
-                    +m.name+' from '+m.origin())
+                    "Couldn't resolve dependencies for macro: %s form %s" % (m.name, m.origin()))
 
     def compile(self, timestamp=True, save_to_file=True):
         '''Compiles this ACL with given *context*.
@@ -395,29 +519,28 @@ class ACL(Trackable):
         as configured.'''
 
         if not self.context:
-            raise NeedsContext('Can only be compiled with a context!')
+            raise NeedsContextError('Can only be compiled with a context!')
 
         if not self.macros_applied:
             self.apply_macros()
 
         context = self.context
-        acl = context.dialect_module.compile_all(self, context.routingdomain+\
-            context.vlanid, timestamp)
+        acl = context.dialect_module.compile_all(self, context.routingdomain + context.vlanid,
+                                                 timestamp)
 
         cfile = None
         if save_to_file:
             # Saving compiled ACLs to cfile in cdir
-            cdir = config.get('global','compiled_dir')+'/'+ \
-                context.routingdomain
-            cfile = cdir+'/'+context.vlanid+'.acl'
+            cdir = '%s/%s' % (config.get('global', 'compiled_dir'), context.routingdomain)
+            cfile = '%s/%s.acl' % (cdir, context.vlanid)
 
             try:
                 try:
-                    umask = int(config.get('global','umask'))
+                    umask = int(config.get('global', 'umask'))
                 except:
                     umask = None
                 try:
-                    gid = int(config.get('global','groupid'))
+                    gid = int(config.get('global', 'groupid'))
                 except:
                     gid = None
 
@@ -429,10 +552,9 @@ class ACL(Trackable):
                     if umask:
                         import stat
                         # We make shure that also executable flags are set
-                        os.chmod(cdir, umask+stat.S_IXUSR+stat.S_IXGRP+stat.S_IXOTH)
+                        os.chmod(cdir, umask + stat.S_IXUSR + stat.S_IXGRP + stat.S_IXOTH)
                     if gid:
                         os.chown(cdir, -1, gid)
-
 
                 # If file allready exists
                 if os.path.isfile(cfile):
@@ -440,7 +562,7 @@ class ACL(Trackable):
                     os.remove(cfile)
 
                 # Creating new file
-                f = open(cfile,'w')
+                f = open(cfile, 'w')
 
                 # Correcting rights and group ownership, if configured
                 if umask:
@@ -465,7 +587,7 @@ class ACL(Trackable):
         Calls :func:`compile`, see there for arguments.'''
 
         if not self.context:
-            raise NeedsContext('Can only be installed with a context!')
+            raise NeedsContextError('Can only be installed with a context!')
 
         if save_to_file:
             self.compile(timestamp=timestamp, save_to_file=True)
@@ -481,7 +603,7 @@ class ACL(Trackable):
         '''
 
         if not self.context:
-            raise NeedsContext('Can only be compiled with a context!')
+            raise NeedsContextError('Can only be compiled with a context!')
 
         if not self.macros_applied:
             self.apply_macros()
@@ -491,7 +613,7 @@ class ACL(Trackable):
         dialect = context.dialect_module
         acl = dialect.compile_one(
             self,
-            context.routingdomain+context.vlanid,
+            context.routingdomain + context.vlanid,
             direction,
             protocol,
             comments=False)
@@ -514,21 +636,26 @@ class ACL(Trackable):
             if not acl_names[protocol][direction]:
                 same = False
                 same_router[router.name] = False
-                print >> output, "No ACLs are bound on interface "+ifaces[router.name]+\
-                    " ("+protocol+" "+direction+") on "+router.name
+                print >> output, "No ACLs are bound on interface " + ifaces[router.name] + \
+                    " (" + protocol + " " + direction + ") on " + router.name
                 continue
 
             acl_on_router = router.read_acl(acl_names[protocol][direction], protocol)
             acl_on_router = acl_on_router.split('\n')
 
-            if not acl_on_router == local_acl: # and ouput
+            if not acl_on_router == local_acl:  # and ouput
                 same = False
                 same_router[router.name] = False
 
-                print >> output, "Diff of VLAN",vlanid," ("+protocol,direction+") on",router.name+':'
+                print >> output, "Diff of VLAN %s (%s %s) on %s:" % (vlanid, protocol, direction, 
+                                                                     router.name)
 
-                for l in difflib.unified_diff(acl_on_router, local_acl, fromfile='local ('+protocol+' '+direction+')', tofile=router.name+' ('+protocol+' '+direction+')', lineterm=""):
-                    print >> output, '    '+l
+                for l in difflib.unified_diff(acl_on_router, local_acl,
+                                              fromfile='local (%s %s)' % (protocol, direction),
+                                              tofile='%s (%s %s)' % (router.name, protocol, 
+                                                                     direction),
+                                              lineterm=""):
+                    print >> output, '    ' + l
 
             # Compare them:
             same_router[router.name] = True
@@ -545,7 +672,7 @@ class ACL(Trackable):
 
         return same, same_router
 
-    def get_rules(self, directions=directions, ip_versions=ip_versions):
+    def get_rules(self, directions=DIRECTIONS, ip_versions=IP_VERSIONS):
         '''Returns all rules matching *directions* and *ip_versions*.
 
         Arguments can be a list subset of global *directions* or *ip_verions*
@@ -587,7 +714,7 @@ class ACL(Trackable):
 
         ret = []
         #check both directions d will be 'in' or 'out'
-        for d in directions:
+        for d in DIRECTIONS:
             acl = self.get_rules(d)
             #remove permit any/local local/any and deny any any
             acl = filter(lambda x:not (x.action == 'deny'
@@ -614,22 +741,21 @@ class ACL(Trackable):
                 #filter reduces list to the rules that are not in local and unequal any
                 #map connects the elemnts to the string
                 if d == 'in':
-                    ret += map(lambda x:('Rule not in local',d,x),
-                        filter(lambda x:not self.in_local(x.filter.sources)
-                        and not self.equals_any(x.filter.sources)
-                        #TODO build config to ignore ips in this check
-                        and not x.filter.sources[0] == IPv4Network('224.0.0.0/4')
-                        and not x.filter.sources[0] == IPv4Network('255.255.255.255/32')
-                        and not x.filter.sources[0] == IPv6Network('fe80::/10')
-                        ,acl[i+1:]))
+                    ret += map(lambda x:('Rule not in local', d, x),
+                        filter(lambda x:not self.in_local(x.filter.sources) and
+                            not self.equals_any(x.filter.sources) and
+                            #TODO build config to ignore ips in this check
+                            not x.filter.sources[0] == IPv4Network('224.0.0.0/4') and
+                            not x.filter.sources[0] == IPv4Network('255.255.255.255/32') and
+                            not x.filter.sources[0] == IPv6Network('fe80::/10'), acl[(i + 1):]))
                 else:
-                    ret += map(lambda x:('Rule not in local',d,x),
-                    filter(lambda x:not self.in_local(x.filter.destinations)
-                    and not self.equals_any(x.filter.destinations)
-                    and not x.filter.destinations[0] == IPv4Network('224.0.0.0/4')
-                    and not x.filter.destinations[0] == IPv4Network('255.255.255.255/32')
-                    and not x.filter.destinations[0] == IPv6Network('fe80::/10')
-                    ,acl[i+1:]))
+                    ret += map(lambda x:('Rule not in local', d, x),
+                    filter(lambda x: not self.in_local(x.filter.destinations) and
+                                     not self.equals_any(x.filter.destinations) and
+                                     not x.filter.destinations[0] == IPv4Network('224.0.0.0/4') and
+                                     not x.filter.destinations[0] == IPv4Network('255.255.255.255/32') and
+                                     not x.filter.destinations[0] == IPv6Network('fe80::/10'),
+                           acl[(i + 1):]))
 
             #check if a rule is never reached cause it is fully contained in an ealier rule
             #reset acl
@@ -638,14 +764,14 @@ class ACL(Trackable):
                 #filter reduces list to the rules never reached
                 #map connects the rules to the ones they are contained in
                 #description string: "Rule never reached"
-                ret += map(lambda r2:('Rule never reached',d,r2,acl[i]),
-                    filter(lambda x:x.filter in acl[i].filter
-                    and x.filter.protocols == acl[i].filter.protocols
-                    and (((x.filter.sports or acl[i].filter.sports) == Ports())
-                    or filter(x.filter.sports.__contains__, acl[i].filter.sports))
-                    and (((x.filter.dports or acl[i].filter.dports) == Ports())
-                    or filter(x.filter.dports.__contains__, acl[i].filter.dports))
-                    ,acl[i+1:]))
+                ret += map(lambda r2:('Rule never reached', d, r2, acl[i]),
+                    filter(lambda x:x.filter in acl[i].filter and
+                        x.filter.protocols == acl[i].filter.protocols and
+                        (((x.filter.sports or acl[i].filter.sports) == Ports()) or
+                        filter(x.filter.sports.__contains__, acl[i].filter.sports)) and
+                        (((x.filter.dports or acl[i].filter.dports) == Ports()) or
+                        filter(x.filter.dports.__contains__, acl[i].filter.dports)),
+                        acl[(i + 1):]))
 
             #reset acl
             acl = orig
@@ -660,14 +786,14 @@ class ACL(Trackable):
                 #filter reduces list to the rules that overlaps
                 #map connects the rules to the ones they overlaps with
                 #description string: "Rule overlapses
-                ret += map(lambda r2:('Rules overlaps',d,acl[i],r2),
-                    filter(lambda x:acl[i].filter.overlaps(x.filter)
-                    and x.filter.protocols == acl[i].filter.protocols
-                    and (((x.filter.sports or acl[i].filter.sports) == Ports())
-                    or filter(x.filter.sports.__contains__, acl[i].filter.sports))
-                    and (((x.filter.dports or acl[i].filter.dports) == Ports())
-                    or filter(x.filter.dports.__contains__, acl[i].filter.dports))
-                    ,acl[i+1:]))
+                ret += map(lambda r2:('Rules overlaps', d, acl[i], r2),
+                    filter(lambda x:acl[i].filter.overlaps(x.filter) and
+                        x.filter.protocols == acl[i].filter.protocols and
+                        (((x.filter.sports or acl[i].filter.sports) == Ports()) or
+                        filter(x.filter.sports.__contains__, acl[i].filter.sports)) and
+                        (((x.filter.dports or acl[i].filter.dports) == Ports()) or
+                        filter(x.filter.dports.__contains__, acl[i].filter.dports)),
+                        acl[(i + 1):]))
 
             #reset acl
             acl = orig
@@ -677,15 +803,15 @@ class ACL(Trackable):
                 #filter reduces list to the rules that are contained in sth.
                 #map connects the rules to the ones they are contained in
                 #description string: "Rule contained in other"
-                ret += map(lambda r2:('Rule contained in later rule',d,acl[i],r2),
+                ret += map(lambda r2:('Rule contained in later rule', d, acl[i], r2),
                     filter(lambda x:acl[i].filter in x.filter and
-                    acl[i].action == x.action
-                    and x.filter.protocols == acl[i].filter.protocols
-                    and (((x.filter.sports or acl[i].filter.sports) == Ports())
-                    or filter(x.filter.sports.__contains__, acl[i].filter.sports))
-                    and (((x.filter.dports or acl[i].filter.dports) == Ports())
-                    or filter(x.filter.dports.__contains__, acl[i].filter.dports))
-                    ,acl[i+1:]))
+                        acl[i].action == x.action and
+                        x.filter.protocols == acl[i].filter.protocols and
+                        (((x.filter.sports or acl[i].filter.sports) == Ports()) or
+                        filter(x.filter.sports.__contains__, acl[i].filter.sports)) and
+                        (((x.filter.dports or acl[i].filter.dports) == Ports()) or
+                        filter(x.filter.dports.__contains__, acl[i].filter.dports)),
+                        acl[(i + 1):]))
 
         return ret
 
@@ -720,6 +846,7 @@ class ACL(Trackable):
              + '\n MACROS:\n' + pformat(self.macros, 3) +\
                '\n ACL IN:\n' + pformat(self.acl_in, 3) +\
                '\n ACL OUT:\n' + pformat(self.acl_out, 3)
+
 
 class Context(object):
     '''Represents a context, within which a ACL can be checked and compiled.
@@ -765,13 +892,13 @@ class Context(object):
         # Default interface name if nothing was specified in TNETs: 'Vlan'+vlanid
         for r in self.routers:
             if r['name'] not in self.interfaces:
-                self.interfaces[r['name']] = 'Vlan'+self.vlanid
+                self.interfaces[r['name']] = 'Vlan' + self.vlanid
 
         router_connections = None
 
         macro_configs = {} # used by macros to exchange informations
 
-    def get_alias(self, host, ip_versions=ip_versions):
+    def get_alias(self, host, ip_versions=IP_VERSIONS):
         '''Resolves *host* by checking ipv4 or ipv6 alias lists.
         Wether ipv4 or ipv6 aliases are returned dependes on *ip_versions*, this
         can be either a list or a string of 'ipv4', 'ipv6'.
@@ -823,7 +950,7 @@ class Context(object):
 
         Automaticly called in constructor.
 
-        Throws VLANDoesNotExist exeption if vlan could not be found in file.'''
+        Throws VLANDoesNotExistError exeption if vlan could not be found in file.'''
 
         self.ipv4_aliases['local'] = []
         self.ipv6_aliases['local'] = []
@@ -831,7 +958,7 @@ class Context(object):
         f = open(config.get("global", "vlans_file"))
         for l in f.readlines():
             # turn line into array
-            # RRZE		3	rlan3		131.188.2.0/23		2001:638:A00:2::/64	RRZE-UNIX
+            # RRZE        3	rlan3		131.188.2.0/23		2001:638:A00:2::/64	RRZE-UNIX
             # to
             # ['RRZE','3','rlan3',131.188.2.0/23','2001:638:A00:2::/64','RZE-UNIX']
             l = filter(lambda x: not x=='' and not x.startswith(';'), l.strip().split('\t'))
@@ -848,20 +975,18 @@ class Context(object):
                     try:
                         self.ipv4_aliases['local'] += [IPv4Network(l[3])]
                     except AddressValueError:
-                        raise VLANDescriptionError(('Bad IPv4 range '+ \
-                            'description of VLAN %s %s in %s, must be in '+\
-                            '/ notation') % (self.routingdomain, self.vlanid,\
-                            config.get("global", "vlans_file")))
+                        raise VLANDescriptionError(
+                            'Bad IPv4 range description of VLAN %s %s in %s.' % \
+                            (self.routingdomain, self.vlanid, config.get("global", "vlans_file")))
 
                 if not l[4].startswith('-'):
                     self.ip_versions.append('ipv6')
                     try:
                         self.ipv6_aliases['local'] += [IPv6Network(l[4])]
                     except AddressValueError:
-                        raise VLANDescriptionError(('Bad IPv6 range '+ \
-                            'description of VLAN %s %s in %s, must be in '+\
-                            '/ notation') % (self.routingdomain, self.vlanid,\
-                            config.get("global", "vlans_file")))
+                        raise VLANDescriptionError(
+                            'Bad IPv6 range description of VLAN %s %s in %s.' % \
+                            (self.routingdomain, self.vlanid, config.get("global", "vlans_file")))
 
         f = open(config.get("global", "transit_file"))
         for l in f.readlines():
@@ -891,10 +1016,9 @@ class Context(object):
                         if type(ifaces) == dict:
                             self.interfaces = ifaces
                     except:
-                        raise VLANDescriptionError(('Bad interface name in '+ \
-                            'description of VLAN %s %s in %s, must be in '+\
-                            ' python dictionary string notation') % (self.routingdomain,
-                            self.vlanid, config.get("global", "transit_file")))
+                        raise VLANDescriptionError(('Bad interface name in description of VLAN ' + \
+                            '%s %s in %s, must be in python dictionary string notation' % \
+                            (self.routingdomain, self.vlanid, config.get("global", "transit_file"))))
 
                 # If column starts with -, ignore
                 if not l[3].startswith('-'):
@@ -902,10 +1026,9 @@ class Context(object):
                     try:
                         self.ipv4_aliases['local'] += [IPv4Network(l[3])]
                     except AddressValueError:
-                        raise VLANDescriptionError(('Bad IPv4 range '+ \
-                            'description of VLAN %s %s in %s, must be in '+\
-                            '/ notation') % (self.routingdomain, self.vlanid,\
-                            config.get("global", "transit_file")))
+                        raise VLANDescriptionError(
+                            'Bad IPv4 range description of VLAN %s %s in %s' % \
+                            (self.routingdomain, self.vlanid, config.get("global", "transit_file")))
 
                 # If column starts with -, ignore
                 if not l[4].startswith('-'):
@@ -913,19 +1036,18 @@ class Context(object):
                     try:
                         self.ipv6_aliases['local'] += [IPv6Network(l[4])]
                     except AddressValueError:
-                        raise VLANDescriptionError(('Bad IPv6 range '+ \
-                            'description of VLAN %s %s in %s, must be in '+\
-                            '/ notation') % (self.routingdomain, self.vlanid,\
-                            config.get("global", "transit_file")))
+                        raise VLANDescriptionError(
+                            'Bad IPv6 range description of VLAN ' + \
+                            '%s %s in %s, must be in / notation' % \
+                            (self.routingdomain, self.vlanid, config.get("global", "transit_file")))
 
         if not self.ip_versions:
-            raise VLANDoesNotExist('The VLAN ('+self.routingdomain+'/'+ \
-                self.vlanid+') couldn\'t be found in VLANs nor in'+ \
-                ' TNETs file.')
+            raise VLANDoesNotExistError('The VLAN (%s/%s) could not be found in VLANs nor in '+ \
+                'TNETs file.' % (self.routingdomain, self.vlanid))
 
         if not self.ip_versions:
-            log.info('VLAN ('+self.routingdomain+'/'+self.vlanid+') '+ \
-                'has no IPv4 and no IPv6 network address.')
+            log.info('VLAN (%s/%s) has no IPv4 and no IPv6 network address.' \
+                % (self.routingdomain, self.vlanid))
 
     def get_router_info(self):
         '''Reads information about the routers for this context and stores
@@ -933,39 +1055,36 @@ class Context(object):
 
         c = ConfigParser.SafeConfigParser()
         routers_file = config.get('global', 'routers_file')
-        assert len(c.read(routers_file)) > 0, 'File could not be read: '+routers_file
+        assert len(c.read(routers_file)) > 0, 'File could not be read: ' + routers_file
 
         # Get list of routernames from routingdomains section
         try:
             routernames = c.get('routingdomains', self.routingdomain).split(',')
         except ConfigParser.NoOptionError:
-            raise UnknownRoutingdomain('Routingdomain ('+self.routingdomain+ \
-                ') not found in routers_file ('+routers_file+').')
+            raise UnknownRoutingdomainError('Routingdomain (%s) not found in routers_file (%s).' % \
+                (self.routingdomain, routers_file))
 
         self.routers = []
         self.dialect = None
         # Get router section for each routername:
         for r in map(lambda x: x.strip(), routernames):
             try:
-                self.routers.append(dict(c.items('router_'+r)))
+                self.routers.append(dict(c.items('router_' + r)))
                 if 'host' not in self.routers[-1]:
-                    raise UnknownRouter('Router section router_'+r+ \
-                        ' has no host option.')
+                    raise UnknownRouterError('Router section router_%s has no host option.' % r)
                 if 'dialect' not in self.routers[-1]:
-                    raise UnknownRouter('Router section router_'+r+ \
-                        ' has not dialect option.')
-                if self.dialect == None:
+                    raise UnknownRouterError('Router section router_%s has no host option.' % r)
+                if self.dialect is None:
                     self.dialect = self.routers[-1]['dialect']
                 elif self.routers[-1]['dialect'] != self.dialect:
-                    raise UnknownRouter('Router section router_'+r+ \
-                        'has different dialect then other routers in '+ \
-                        'routingdomain')
+                    raise UnknownRouterError('Router section router_%s has different dialect ' + \
+                        'then other routers in routingdomain' % r)
                 self.routers[-1]['name'] = r
             except ConfigParser.NoSectionError:
-                raise UnknownRouter('Router section (router_'+r+ \
-                    ') not found in routers_file ('+routers_file+').')
+                raise UnknownRouterError('Router section (router_%s) not found in ' + \
+                    'routers_file (%s).' % (r, routers_file))
 
-        self.dialect_module = __import__('lib.dialects.'+self.dialect, fromlist='lib.dialects')
+        self.dialect_module = __import__('lib.dialects.' + self.dialect, fromlist='lib.dialects')
 
         self.user = c.get('access', 'user')
         self.pw = c.get('access', 'pw')
@@ -974,23 +1093,25 @@ class Context(object):
         '''Returns Router object, needed for communication with router.'''
         ret = []
         for router in self.routers:
-            ret.append(self.dialect_module.Router(router['host'], self.user,
-                self.pw, read_running_config_first=read_running_config_first, name=router['name']))
+            ret.append(self.dialect_module.Router(router['host'], self.user, self.pw, 
+                                                  read_running_config_first=read_running_config_first, 
+                                                  name=router['name']))
 
         return ret
 
     def get_policy_path(self):
         '''Returns path to policy file.'''
-        return config.get("global", "policies_dir")+'/'+self.routingdomain \
-            +'/'+self.vlanid+config.get("global", "policies_ext")
+        return '%s/%s/%s' % (config.get("global", "policies_dir"), self.routingdomain,
+                             self.vlanid+config.get("global", "policies_ext"))
 
     def get_policy_dir(self):
         '''Returns path to directory of policy files for same routingdomain.'''
-        return config.get("global", "policies_dir")+'/'+self.routingdomain+'/'
+        return '%s/%s/' % (config.get("global", "policies_dir"), self.routingdomain)
 
     def get_acl(self):
         '''Returns :class:`ACL` object for this context'''
         return ACL.from_context(self)
+
 
 class MacroCall(Trackable):
     '''Reference to a macro with possible arguments.'''
@@ -1002,11 +1123,10 @@ class MacroCall(Trackable):
             self.macroclass = getattr(macros, self.name)
             self.macro = self.macroclass(self.arguments)
             self.macro.originate_from(self)
-            self.macro._comment = name+'('+str(arguments)+')'
+            self.macro._comment = '%s(%s)' % (name, arguments)
         except AttributeError:
-            err = MacroDoesNotExist('Macro name is not valid')
-            Trackable.__init__(err, filename=filename, lineno=lineno,
-                parent=parent)
+            err = MacroDoesNotExistError('Macro name is not valid')
+            Trackable.__init__(err, filename=filename, lineno=lineno, parent=parent)
             raise err
 
     @classmethod
@@ -1018,10 +1138,9 @@ class MacroCall(Trackable):
 
         # Retriving and checking macro name
         name = string.split('(')[0]
-        if re.match(r'^\w+$', name) == None:
-            err = MacroDoesNotExist('Macro name is not valid')
-            Trackable.__init__(err, filename=filename, lineno=lineno,
-                parent=parent)
+        if re.match(r'^\w+$', name) is None:
+            err = MacroDoesNotExistError('Macro name is not valid')
+            Trackable.__init__(err, filename=filename, lineno=lineno, parent=parent)
             raise err
 
         # Retriving arguments
@@ -1033,14 +1152,14 @@ class MacroCall(Trackable):
         '''Applies macro with arguments to *acl* ACL object.'''
         return self.macro.call(acl)
 
+
 class Rule(Trackable):
     '''Abstraction of one rule from the policy file.'''
 
     def __init__(self, action, filter, extensions=[], filename=None, lineno=None, parent=None):
         if action not in ['permit', 'deny']:
-            err = InvalidACL('Action is not valid')
-            Trackable.__init__(err, filename=filename, lineno=lineno,
-                parent=parent)
+            err = InvalidACLError('Action is not valid')
+            Trackable.__init__(err, filename=filename, lineno=lineno, parent=parent)
             raise err
 
         self.action = action
@@ -1058,7 +1177,7 @@ class Rule(Trackable):
 
     @classmethod
     def from_string(cls, string, context=None, temp_aliases=None, filename=None, lineno=None,
-        parent=None, sourceline=None, ignore_mismatch=False):
+                    parent=None, sourceline=None, ignore_mismatch=False):
         '''Takes *string* and parses it into a Rule object.
 
         As Rule objects require a Filter object, the parsing of the filter is
@@ -1075,29 +1194,35 @@ class Rule(Trackable):
         fstring = string.split(' ')[1:]
         # Extract extensions from the end
         extensions = []
-        while fstring[-1] in extension_names:
+        while fstring[-1] in EXTENSION_NAMES:
             extensions.append(fstring.pop())
 
         # Create Filter object
-        filter = Filter.from_string(' '.join(fstring), context, temp_aliases,
-            filename, lineno, parent, sourceline, ignore_mismatch)
+        filter = Filter.from_string(' '.join(fstring), context, temp_aliases, filename, lineno, 
+                                    parent, sourceline, ignore_mismatch)
 
         return cls(action, filter, extensions, filename, lineno, parent)
 
     def __str__(self):
         if self.extensions:
-            return self.action+' '+str(self.filter)+' '+' '.join(self.extensions)
+            return '%s %s %s' % (self.action, self.filter, ' '.join(self.extensions))
         else:
-            return self.action+' '+str(self.filter)
+            return '%s %s' % (self.action, self.filter)
 
     def __repr__(self):
         # TODO include filename, lineno and parent in output
+        r = self.__class__.__name__+'(%s, %s' % (self.action.__repr__(), self.filter.__repr__())
+
         if self.extensions:
-            return self.__class__.__name__+'(%s, %s, %s)' % \
-                (self.action, self.filter.__repr__(), self.extensions)
-        else:
-            return self.__class__.__name__+'(%s, %s)' % \
-                (self.action, self.filter.__repr__())
+            r += ', %s' % self.extensions.__repr__()
+
+        if self.filename:
+            r += ', filename=%s' % self.filename.__repr__()
+        if self.lineno:
+            r += ', lineno=%s' % self.lineno.__repr__()
+
+        return r + ')'
+
 
 class Filter(Trackable):
     '''Describes a filter under which condition a Rule applies.
@@ -1105,17 +1230,17 @@ class Filter(Trackable):
     Selection can be done based on protocol, source and destination addresses
     and ports.'''
 
-    def __init__(self, protocols, sources, destinations, sports=None, dports=None,
-            filename=None, lineno=None, parent=None, sourceline=None, ignore_mismatch=False):
+    def __init__(self, protocols, sources, destinations, sports=None, dports=None, filename=None,
+                 lineno=None, parent=None, sourceline=None, ignore_mismatch=False):
         Trackable.__init__(self, filename, lineno, parent)
-        
-        if not all(map(lambda x: x in protocol_names, protocols)):
-            err = InvalidACL('Invalid protocol')
+
+        if not all(map(lambda x: x in PROTOCOL_NAMES, protocols)):
+            err = InvalidACLError('Invalid protocol')
             Trackable.__init__(err, filename=filename, lineno=lineno,
-                parent=parent)
+                               parent=parent)
             raise err
 
-        self.protocols = protocols # protocols (e.g. ip, tcp)
+        self.protocols = protocols  # protocols (e.g. ip, tcp)
         if type(sports) is str:
             self.sports = Ports(sports)
         elif sports is None:
@@ -1124,7 +1249,7 @@ class Filter(Trackable):
             self.sports = sports
         else:
             raise ValueError('sports has to be of either str, Ports or None type.')
-            
+
         if type(dports) is str:
             self.dports = Ports(dports)
         elif dports is None:
@@ -1133,33 +1258,33 @@ class Filter(Trackable):
             self.dports = dports
         else:
             raise ValueError('dports has to be of either str, Ports or None type.')
-        
+
         self.destinations = destinations
         self.sources = sources
 
         # check if ports are given, that combination with protocol makes sense
-        if (sports or dports) and not all(map(port_protocols.__contains__, self.protocols)):
-            err = ProtocolDoesNotSupportPorts("One of the protocols does not support ports, " +
-                "but ports were given.")
-            Trackable.__init__(err, filename=filename, lineno=lineno,
-                parent=parent, sourceline=sourceline)
-            
+        if (sports or dports) and not all(map(PORT_PROTOCOLS.__contains__, self.protocols)):
+            err = ProtocolDoesNotSupportPortsError("One of the protocols does not support ports, " +
+                                                   "but ports were given.")
+            Trackable.__init__(err, filename=filename, lineno=lineno, parent=parent,
+                               sourceline=sourceline)
+
             raise err
-        
+
         self.ip_versions = []
-        if filter(lambda x: type(x) is IPv6Network, sources) != [] \
-            and filter(lambda x: type(x) is IPv6Network, destinations) != []:
+        if filter(lambda x: type(x) is IPv6Network, sources) != [] and \
+                filter(lambda x: type(x) is IPv6Network, destinations) != []:
             self.ip_versions.append('ipv6')
-        if filter(lambda x: type(x) is IPv4Network, sources) != [] \
-            and filter(lambda x: type(x) is IPv4Network, destinations) != []:
+        if filter(lambda x: type(x) is IPv4Network, sources) != [] and \
+                filter(lambda x: type(x) is IPv4Network, destinations) != []:
             self.ip_versions.append('ipv4')
 
         # Were we able to create a filter for IPv4 or IPv6?
         if not self.ip_versions and not ignore_mismatch:
             err = IPVersionMissmatchError("IPv6 or IPv4 addresses have to " +
-                "appear in source and destination!")
+                                          "appear in source and destination!")
             Trackable.__init__(err, filename=filename, lineno=lineno,
-                parent=parent, sourceline=sourceline)
+                               parent=parent, sourceline=sourceline)
             raise err
 
         # Remove unused IP Versions
@@ -1172,7 +1297,7 @@ class Filter(Trackable):
 
     @classmethod
     def from_string(cls, string, context=None, temp_aliases=None, filename=None, lineno=None,
-        parent=None, sourceline=None, ignore_mismatch=False):
+                    parent=None, sourceline=None, ignore_mismatch=False):
         '''Parsers *string* and returns Filter object.'''
         string_orig = string
 
@@ -1180,9 +1305,9 @@ class Filter(Trackable):
         string.reverse()
 
         if len(string) < 3:
-            err = InvalidACL('The rule is not valid')
+            err = InvalidACLError('The rule is not valid')
             Trackable.__init__(err, filename=filename, lineno=lineno,
-                parent=parent)
+                               parent=parent)
             raise err
 
         protocols = string.pop().split(',')
@@ -1190,14 +1315,14 @@ class Filter(Trackable):
         try:
             sources = string_to_ips(string.pop(), context, temp_aliases)
         except (AddressValueError, NetmaskValueError):
-            err = InvalidACL('Source IP in rule is invalid')
+            err = InvalidACLError('Source IP in rule is invalid')
             Trackable.__init__(err, filename=filename, lineno=lineno,
-                parent=parent)
+                               parent=parent)
             raise err
 
         # Is the following a port? Port descreption may only contain numbers, commas and dashes
         # IPs will not match, as they must contain dots or colons
-        if re.match(r'^[0-9\-,]+$', string[-1]) != None:
+        if re.match(r'^[0-9\-,]+$', string[-1]) is not None:
             sports = Ports(string.pop())
         else:
             sports = Ports()
@@ -1205,25 +1330,25 @@ class Filter(Trackable):
         try:
             destinations = string_to_ips(string.pop(), context, temp_aliases)
         except (AddressValueError, NetmaskValueError):
-            err = InvalidACL('Destination IP in rule is invalid')
+            err = InvalidACLError('Destination IP in rule is invalid')
             Trackable.__init__(err, filename=filename, lineno=lineno,
-                parent=parent)
+                               parent=parent)
             raise err
 
         # Also checking if sufficient elements are left
-        if len(string) and re.match(r'^[0-9\-,]+$', string[-1]) != None:
+        if len(string) and re.match(r'^[0-9\-,]+$', string[-1]) is not None:
             dports = Ports(string.pop())
         else:
             dports = Ports()
 
         if len(string) > 0:
-            err = InvalidACL('Not all elements of filter could be parsed')
+            err = InvalidACLError('Not all elements of filter could be parsed')
             Trackable.__init__(err, filename=filename, lineno=lineno,
-                parent=parent)
+                               parent=parent)
             raise err
-        
+
         return cls(protocols, sources, destinations, sports, dports,
-            filename, lineno, parent, sourceline, ignore_mismatch)
+                   filename, lineno, parent, sourceline, ignore_mismatch)
 
     def overlaps(self, other):
         '''Tell if self sources and destination overlapse with other sources and destination'''
@@ -1249,17 +1374,25 @@ class Filter(Trackable):
 
     def __str__(self):
         if self.sports or self.dports:
-            return ','.join(self.protocols)+' '+';'.join(map(str, self.sources))+' '+ \
-                str(self.sports)+' '+';'.join(map(str, self.destinations))+' '+str(self.dports)
+            return '%s %s %s %s %s' % (','.join(self.protocols), ';'.join(map(str, self.sources)),
+                                       self.sports, ';'.join(map(str, self.destinations)), self.dports)
         else:
-            return ','.join(self.protocols)+' '+';'.join(map(str, self.sources))+' ' \
-                +';'.join(map(str, self.destinations))
+            return ' '.join((','.join(self.protocols), ';'.join(map(str, self.sources)),
+                             ';'.join(map(str, self.destinations))))
 
     def __repr__(self):
         # TODO include filename, lineno and parent in output
-        if self.sports or self.dports:
-            return self.__class__.__name__+'(%s, %s, %s, sports=%s, dports=%s)' % \
-                (self.protocols, self.sources, self.destinations, self.sports, self.dports)
-        else:
-            return self.__class__.__name__+'(%s, %s, %s)' % \
-                (self.protocols, self.sources, self.destinations)
+        r = self.__class__.__name__+'(%s, %s, %s' % \
+            (self.protocols.__repr__(), self.sources.__repr__(), self.destinations.__repr__())
+
+        if self.sports:
+            r += ', sports=%s' % self.sports.__repr__()
+        if self.dports:
+            r += ', dports=%s' % self.dports.__repr__()
+
+        if self.filename:
+            r += ', filename=%s' % self.filename.__repr__()
+        if self.lineno:
+            r += ', lineno=%s' % self.lineno.__repr__()
+
+        return r + ')'

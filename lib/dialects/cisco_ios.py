@@ -16,22 +16,25 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from lib import ipaddr_ng
-from lib.ipaddr_ng import IPv4Descriptor
-from lib.third_party.ipaddr import IPv4Network, IPv6Network, AddressValueError
-from lib.third_party.ipaddr import NetmaskValueError
-import datetime
-import string
-import time
-from lib.third_party import pxssh, pxscp, memorization, lockfile
 import sys
-import logging
 import re
-from lib import metacl
 import atexit
 import lib
 import generic
 import random
+import datetime
+import string
+import time
+
+from lib.third_party.ipaddr import IPv4Network, IPv6Network, AddressValueError
+from lib.third_party.ipaddr import NetmaskValueError
+from lib.third_party import pxssh, pxscp, memorization, lockfile
+
+from lib import ipaddr_ng
+from lib.ipaddr_ng import IPv4Descriptor
+from lib import metacl
+import logging
+
 log = logging.getLogger(__name__)
 
 class Error(generic.Error):
@@ -134,11 +137,11 @@ def compile_one(acl, name, direction, ip_version, timestamp=True, comments=True)
     can be copy-pasted if concatinated by \\n'''
     
     if not acl.context:
-        raise metacl.NeedsContext('Can only be compiled with a context set!')
+        raise metacl.NeedsContextError('Can only be compiled with a context set!')
     
-    assert ip_version in metacl.ip_versions, \
-        'Protocol has to be either '+str(metacl.ip_versions)
-    assert direction in metacl.directions, \
+    assert ip_version in metacl.IP_VERSIONS, \
+        'Protocol has to be either '+str(metacl.IP_VERSIONS)
+    assert direction in metacl.DIRECTIONS, \
         'Direction has to be one of '+str(metacl.directions)
     
     if ip_version == 'ipv6' and 'ipv6' not in acl.context.ip_versions:
@@ -330,7 +333,7 @@ def install(self, timestamp=True):
                     'ipv6': {'in': None, 'out': None}}
     
     for v in self.context.ip_versions:
-        for d in metacl.directions:
+        for d in metacl.DIRECTIONS:
             # Name can be anything, since the header will be ignored
             header, newacl_rules[v][d], footer = compile_one(self, \
                 name='TEMP', direction=d, ip_version=v, \
@@ -398,7 +401,7 @@ def install(self, timestamp=True):
                 newacl_names[v]['out'], ip_version=v)
         
             # Remove old ACLs, if they exist
-            for d in metacl.directions:
+            for d in metacl.DIRECTIONS:
                 if oldacl_names[v][d]:
                     router.remove_acl(oldacl_names[v][d], ip_version=v)
         
@@ -556,7 +559,7 @@ class Router(generic.Router):
         By default ipv4 acls are retrieved, if *ip_version* is set to 'ipv6' ipv6 acls
         will be retrieved."""
         
-        assert ip_version in metacl.ip_versions, ip_version+" is unsupported"
+        assert ip_version in metacl.IP_VERSIONS, ip_version+" is unsupported"
         self.check_acl_name(name)
         
         if self._running:
@@ -727,7 +730,7 @@ class Router(generic.Router):
         if not self._client:
             raise ErrorNotConnected("No router connection available")
         
-        assert ip_version in metacl.ip_versions, ip+" is unsupported"
+        assert ip_version in metacl.IP_VERSIONS, ip+" is unsupported"
         self.execute('configure terminal')
         self.execute('interface '+interface)
         if ip_version == 'ipv4':

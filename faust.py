@@ -62,13 +62,14 @@ import re
 import ConfigParser
 import getpass
 
-import lib
-from lib import metacl, helpers, macros, dialects
 from lib.third_party import ipaddr
 from lib.third_party import texttable
 from lib.third_party import docopt
 
+import lib
+from lib import metacl, helpers, macros, dialects
 import logging
+
 try:
     lib.config.load()
 except lib.config.ConfigError, err:
@@ -85,7 +86,7 @@ def compare_acls(routingdomain, vlanid, output=sys.stdout):
         acl = ctxt.get_acl()
         acl.apply_macros()
         acl.compile()
-    except lib.metacl.VLANDoesNotExist, err:
+    except lib.metacl.VLANDoesNotExistError, err:
         log.error("VLAN does not exist: %s" % err)
         return False
 

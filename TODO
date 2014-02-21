@@ -1,6 +1,11 @@
-- repr/str von rule und filter verbessern
 - Klasse für iplist mit expand und collapse erstellen
 - Trace um ports, protokolle und verbindungen erweitern
+- Comply with PEP-8. Specifically:
+   * Comment style
+   * "exception chaining"
+   * Naming conventions
+   * Line break/continuation style
+   * is type -> isinstance
 
 - Spaltenbreite bei search optimieren
 - Userfriendly Parser Errors

@@ -16,11 +16,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import itertools
+
+from third_party import ipaddr
+
 import metacl
 from helpers import Trackable, build_alias_list
 from ipaddr_ng import IPv4Descriptor, any_
-from third_party import ipaddr
-import itertools
 
 class Error(Exception):
     """Base class for exceptions in this module."""
