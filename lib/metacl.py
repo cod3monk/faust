@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+# !/usr/bin/env python
 # FAUST2 - a network ACL compiler and ditribution system.
 # Copyright (C) 2013  Julian Hammer <julian.hammer@u-sys.org>
 #
@@ -404,7 +404,7 @@ class ACL(Trackable):
 
         # Removing lines which are blank or contain only comments
         # Line numbers are preserved
-        lines = filter(lambda x: not len(x[1].strip()) == 0 and not x[1].strip().startswith('#'),
+        lines = filter(lambda x: not len(x[1].strip()) == 0 and not x[1].strip().startswith('# '),
                        lines)
         # Strip all leading and ending whitespaces from lines
         lines = map(lambda x: (x[0], x[1].strip()), lines)
@@ -647,12 +647,12 @@ class ACL(Trackable):
                 same = False
                 same_router[router.name] = False
 
-                print >> output, "Diff of VLAN %s (%s %s) on %s:" % (vlanid, protocol, direction, 
+                print >> output, "Diff of VLAN %s (%s %s) on %s:" % (vlanid, protocol, direction,
                                                                      router.name)
 
                 for l in difflib.unified_diff(acl_on_router, local_acl,
                                               fromfile='local (%s %s)' % (protocol, direction),
-                                              tofile='%s (%s %s)' % (router.name, protocol, 
+                                              tofile='%s (%s %s)' % (router.name, protocol,
                                                                      direction),
                                               lineterm=""):
                     print >> output, '    ' + l
@@ -698,120 +698,127 @@ class ACL(Trackable):
         return rules
 
     def sanity_check(self):
-        '''check if acl is valid.
-            the returned list contains a string depending on the conflict that matched
-            a string with in or out
-            and the rule(s) that caused the conflict
-            different protocols are ignored'''
-            #TODO Improve protocol checks
+        '''Check if ACL is valid.
+
+        Returns list containing strings depending on the conflict that matched
+        a string with in or out
+        and the rule(s) that caused the conflict
+        different protocols are ignored'''
+        # TODO Improve protocol checks
 
         if not self.macros_applied:
             self.apply_macros()
 
-        #filter macros
-        ignore_macros = config.get('global','ignore_macros').split()
-        ignore_macros = map(lambda x:eval("macros.%s"%x),ignore_macros);
+        # filter macros
+        ignore_macros = config.get('global', 'ignore_macros').split()
+        ignore_macros = map(lambda x: eval("macros.%s" % x), ignore_macros)
 
         ret = []
-        #check both directions d will be 'in' or 'out'
+        # check both directions d will be 'in' or 'out'
         for d in DIRECTIONS:
             acl = self.get_rules(d)
-            #remove permit any/local local/any and deny any any
-            acl = filter(lambda x:not (x.action == 'deny'
-            and self.equals_any(x.filter.sources)
-            and self.equals_any(x.filter.destinations)),acl)
+            # remove permit any/local local/any and deny any any
+            acl = filter(lambda x: not (x.action == 'deny' and
+                                        self.equals_any(x.filter.sources) and
+                                        self.equals_any(x.filter.destinations)), acl)
             if(d == 'in'):
-                acl = filter(lambda x:not (x.action == 'permit'
-                and self.equals_local(x.filter.sources)
-                and self.equals_any(x.filter.destinations)),acl)
+                acl = filter(lambda x: not (x.action == 'permit' and
+                                            self.equals_local(x.filter.sources) and
+                                            self.equals_any(x.filter.destinations)), acl)
             else:
-                acl = filter(lambda x:not (x.action == 'permit'
-                and self.equals_any(x.filter.sources)
-                and self.equals_local(x.filter.destinations)),acl)
+                acl = filter(lambda x: not (x.action == 'permit' and
+                                            self.equals_any(x.filter.sources) and
+                                            self.equals_local(x.filter.destinations)), acl)
 
-            #remove rule from macros specified in config.ini
+            # remove rule from macros specified in config.ini
             for i in ignore_macros:
-                acl = filter(lambda x:type(x.parent) != i,acl)
+                acl = filter(lambda x: type(x.parent) != i, acl)
 
-            #save acl to reset it later
+            # save acl to reset it later
             orig = acl
-            #check if IN.sources and OUT.destinations are in local
-            #description string: "Rule not in local"
+            # check if IN.sources and OUT.destinations are in local
+            # description string: "Rule not in local"
             for i in range(len(acl)):
-                #filter reduces list to the rules that are not in local and unequal any
-                #map connects the elemnts to the string
+                # filter reduces list to the rules that are not in local and unequal any
+                # map connects the elemnts to the string
                 if d == 'in':
-                    ret += map(lambda x:('Rule not in local', d, x),
-                        filter(lambda x:not self.in_local(x.filter.sources) and
-                            not self.equals_any(x.filter.sources) and
-                            #TODO build config to ignore ips in this check
-                            not x.filter.sources[0] == IPv4Network('224.0.0.0/4') and
-                            not x.filter.sources[0] == IPv4Network('255.255.255.255/32') and
-                            not x.filter.sources[0] == IPv6Network('fe80::/10'), acl[(i + 1):]))
+                    ret += map(
+                        lambda x: ('Rule not in local', d, x),
+                        filter(lambda x: not self.in_local(x.filter.sources) and
+                               not self.equals_any(x.filter.sources) and
+                               # TODO build config to ignore ips in this check
+                               not x.filter.sources[0] == IPv4Network('224.0.0.0/4') and
+                               not x.filter.sources[0] == IPv4Network('255.255.255.255/32') and
+                               not x.filter.sources[0] == IPv6Network('fe80::/10'),
+                               acl[(i + 1):]))
                 else:
-                    ret += map(lambda x:('Rule not in local', d, x),
-                    filter(lambda x: not self.in_local(x.filter.destinations) and
-                                     not self.equals_any(x.filter.destinations) and
-                                     not x.filter.destinations[0] == IPv4Network('224.0.0.0/4') and
-                                     not x.filter.destinations[0] == IPv4Network('255.255.255.255/32') and
-                                     not x.filter.destinations[0] == IPv6Network('fe80::/10'),
+                    ret += map(
+                        lambda x: ('Rule not in local', d, x),
+                        filter(lambda x: not self.in_local(x.filter.destinations) and
+                               not self.equals_any(x.filter.destinations) and
+                               not x.filter.destinations[0] == IPv4Network('224.0.0.0/4') and
+                               not x.filter.destinations[0] == IPv4Network('255.255.255.255/32') and
+                               not x.filter.destinations[0] == IPv6Network('fe80::/10'),
+                               acl[(i + 1):]))
+
+            # check if a rule is never reached cause it is fully contained in an ealier rule
+            # reset acl
+            acl = orig
+            for i in range(len(acl)):
+                # filter reduces list to the rules never reached
+                # map connects the rules to the ones they are contained in
+                # description string: "Rule never reached"
+                ret += map(
+                    lambda r2: ('Rule never reached', d, r2, acl[i]),
+                    filter(lambda x: x.filter in acl[i].filter and
+                           x.filter.protocols == acl[i].filter.protocols and
+                           ((not x.filter.sports or not acl[i].filter.sports) or
+                            filter(x.filter.sports.__contains__, acl[i].filter.sports)) and
+                           ((not x.filter.dports or not acl[i].filter.dports) or
+                            filter(x.filter.dports.__contains__, acl[i].filter.dports)),
                            acl[(i + 1):]))
 
-            #check if a rule is never reached cause it is fully contained in an ealier rule
-            #reset acl
+            # reset acl
             acl = orig
-            for i in range(len(acl)):
-                #filter reduces list to the rules never reached
-                #map connects the rules to the ones they are contained in
-                #description string: "Rule never reached"
-                ret += map(lambda r2:('Rule never reached', d, r2, acl[i]),
-                    filter(lambda x:x.filter in acl[i].filter and
-                        x.filter.protocols == acl[i].filter.protocols and
-                        (((x.filter.sports or acl[i].filter.sports) == Ports()) or
-                        filter(x.filter.sports.__contains__, acl[i].filter.sports)) and
-                        (((x.filter.dports or acl[i].filter.dports) == Ports()) or
-                        filter(x.filter.dports.__contains__, acl[i].filter.dports)),
-                        acl[(i + 1):]))
-
-            #reset acl
-            acl = orig
-            #check if rules do overlapse, any and local are ignored
-            #filter removes any and local
-            acl = filter(lambda x:not self.equals_any(x.filter.sources) and
-                not self.equals_any(x.filter.destinations) and
-                not self.equals_local(x.filter.sources) and
-                not self.equals_local(x.filter.destinations),acl)
+            # check if rules do overlapse, any and local are ignored
+            # filter removes any and local
+            acl = filter(lambda x: not self.equals_any(x.filter.sources) and
+                         not self.equals_any(x.filter.destinations) and
+                         not self.equals_local(x.filter.sources) and
+                         not self.equals_local(x.filter.destinations), acl)
 
             for i in range(len(acl)):
-                #filter reduces list to the rules that overlaps
-                #map connects the rules to the ones they overlaps with
-                #description string: "Rule overlapses
-                ret += map(lambda r2:('Rules overlaps', d, acl[i], r2),
-                    filter(lambda x:acl[i].filter.overlaps(x.filter) and
-                        x.filter.protocols == acl[i].filter.protocols and
-                        (((x.filter.sports or acl[i].filter.sports) == Ports()) or
-                        filter(x.filter.sports.__contains__, acl[i].filter.sports)) and
-                        (((x.filter.dports or acl[i].filter.dports) == Ports()) or
-                        filter(x.filter.dports.__contains__, acl[i].filter.dports)),
-                        acl[(i + 1):]))
+                # filter reduces list to the rules that overlaps
+                # map connects the rules to the ones they overlaps with
+                # description string: "Rule overlapses
+                ret += map(
+                    lambda r2: ('Rules overlaps', d, acl[i], r2),
+                    filter(lambda x: acl[i].filter.overlaps(x.filter) and
+                           x.filter.protocols == acl[i].filter.protocols and
+                           ((not x.filter.sports or not acl[i].filter.sports) or
+                            filter(x.filter.sports.__contains__, acl[i].filter.sports)) and
+                           ((not x.filter.dports or not acl[i].filter.dports) or
+                            filter(x.filter.dports.__contains__, acl[i].filter.dports)),
+                           acl[(i + 1):]))
 
-            #reset acl
+            # reset acl
             acl = orig
-            #check if rule is fully contained in a later rule with same action
-            #(permit, deny)
+            # check if rule is fully contained in a later rule with same action
+            # (permit, deny)
             for i in range(len(acl)):
-                #filter reduces list to the rules that are contained in sth.
-                #map connects the rules to the ones they are contained in
-                #description string: "Rule contained in other"
-                ret += map(lambda r2:('Rule contained in later rule', d, acl[i], r2),
-                    filter(lambda x:acl[i].filter in x.filter and
-                        acl[i].action == x.action and
-                        x.filter.protocols == acl[i].filter.protocols and
-                        (((x.filter.sports or acl[i].filter.sports) == Ports()) or
-                        filter(x.filter.sports.__contains__, acl[i].filter.sports)) and
-                        (((x.filter.dports or acl[i].filter.dports) == Ports()) or
-                        filter(x.filter.dports.__contains__, acl[i].filter.dports)),
-                        acl[(i + 1):]))
+                # filter reduces list to the rules that are contained in sth.
+                # map connects the rules to the ones they are contained in
+                # description string: "Rule contained in other"
+                ret += map(
+                    lambda r2: ('Rule contained in later rule', d, acl[i], r2),
+                    filter(lambda x: acl[i].filter in x.filter and
+                           acl[i].action == x.action and
+                           x.filter.protocols == acl[i].filter.protocols and
+                           ((not x.filter.sports or not acl[i].filter.sports) or
+                            filter(x.filter.sports.__contains__, acl[i].filter.sports)) and
+                           ((not x.filter.dports or not acl[i].filter.dports) or
+                            filter(x.filter.dports.__contains__, acl[i].filter.dports)),
+                           acl[(i + 1):]))
 
         return ret
 
@@ -825,13 +832,17 @@ class ACL(Trackable):
 
     def is_pal(self, rule):
         '''returns true if *rule* is Rule: permit ip any local'''
-        if rule.action == 'permit' and self.equals_any(rule.filter.sources) and self.equals_local(rule.filter.destinations):
-            return True;
+        if rule.action == 'permit' and \
+                self.equals_any(rule.filter.sources) and \
+                self.equals_local(rule.filter.destinations):
+            return True
 
     def is_daa(self, rule):
         '''returns true if *rule* is Rule: deny ip any any'''
-        if rule.action == 'deny' and self.equals_any(rule.filter.sources) and self.equals_any(rule.filter.destinations):
-            return True;
+        if rule.action == 'deny' and \
+                self.equals_any(rule.filter.sources) and \
+                self.equals_any(rule.filter.destinations):
+            return True
 
     def in_local(self, network):
         '''returns true if *network* is completely contained in local'''
@@ -842,10 +853,8 @@ class ACL(Trackable):
         return True
 
     def __str__(self):
-        return 'ACL:' \
-             + '\n MACROS:\n' + pformat(self.macros, 3) +\
-               '\n ACL IN:\n' + pformat(self.acl_in, 3) +\
-               '\n ACL OUT:\n' + pformat(self.acl_out, 3)
+        return 'ACL:\n MACROS:\n%s\n ACL IN:\n%s\n ACL OUT:\n%s' % \
+            (pformat(self.macros, 3), pformat(self.acl_in, 3), pformat(self.acl_out, 3))
 
 
 class Context(object):
@@ -861,23 +870,22 @@ class Context(object):
 
         # Find and read host alias configuration
         hosts_config = ConfigParser.SafeConfigParser()
-        hosts_config.read(config.get("global","aliases_file"))
+        hosts_config.read(config.get("global", "aliases_file"))
 
         # Build dictionary of aliases found in config
-        self.ipv4_aliases = dict(map(
-            lambda x: (x[0], IPv4Descriptor(x[1].strip().replace(" ",""))),
-                hosts_config.items('ipv4')))
-        self.ipv6_aliases = dict(map(
-            lambda x: (x[0], IPv6Descriptor(x[1].strip().replace(" ",""))),
-                hosts_config.items('ipv6')))
+        self.ipv4_aliases = dict(map(lambda x: (x[0],
+                                                IPv4Descriptor(x[1].strip().replace(" ", ""))),
+                                     hosts_config.items('ipv4')))
+        self.ipv6_aliases = dict(map(lambda x: (x[0],
+                                                IPv6Descriptor(x[1].strip().replace(" ", ""))),
+                                     hosts_config.items('ipv6')))
 
         # Including external alias descriptions
-        for k,v in hosts_config.items('include'):
+        for k, v in hosts_config.items('include'):
             if not v:
                 continue
             for l in open(v).readlines():
-                if not l.startswith('#') and \
-                   not l.startswith(';') and len(l)>0:
+                if not l.startswith('# ') and not l.startswith(';') and len(l) > 0:
                     self.set_alias(k, l.strip())
 
         # Static and globally present aliases:
@@ -896,7 +904,7 @@ class Context(object):
 
         router_connections = None
 
-        macro_configs = {} # used by macros to exchange informations
+        macro_configs = {}  # used by macros to exchange informations
 
     def get_alias(self, host, ip_versions=IP_VERSIONS):
         '''Resolves *host* by checking ipv4 or ipv6 alias lists.
@@ -913,9 +921,9 @@ class Context(object):
             ip_versions = [ip_versions]
 
         l = []
-        if 'ipv4' in ip_versions and self.ipv4_aliases.has_key(host):
+        if 'ipv4' in ip_versions and host in self.ipv4_aliases:
             l += self.ipv4_aliases[host]
-        if 'ipv6' in ip_versions and self.ipv6_aliases.has_key(host):
+        if 'ipv6' in ip_versions and host in self.ipv6_aliases:
             l += self.ipv6_aliases[host]
 
         return l
@@ -932,7 +940,7 @@ class Context(object):
             # IPv6
             ips = IPv6Descriptor(ip_string)
 
-            if self.ipv6_aliases.has_key(name):
+            if name in self.ipv6_aliases:
                 self.ipv6_aliases[name] += ips
             else:
                 self.ipv6_aliases[name] = ips
@@ -940,7 +948,7 @@ class Context(object):
             # IPv4
             ips = IPv4Descriptor(ip_string)
 
-            if self.ipv4_aliases.has_key(name):
+            if name in self.ipv4_aliases:
                 self.ipv4_aliases[name] += ips
             else:
                 self.ipv4_aliases[name] = ips
@@ -961,7 +969,7 @@ class Context(object):
             # RRZE        3	rlan3		131.188.2.0/23		2001:638:A00:2::/64	RRZE-UNIX
             # to
             # ['RRZE','3','rlan3',131.188.2.0/23','2001:638:A00:2::/64','RZE-UNIX']
-            l = filter(lambda x: not x=='' and not x.startswith(';'), l.strip().split('\t'))
+            l = filter(lambda x: x != '' and not x.startswith(';'), l.strip().split('\t'))
 
             # Sufficient columns
             if not len(l) >= 4:
@@ -976,7 +984,7 @@ class Context(object):
                         self.ipv4_aliases['local'] += [IPv4Network(l[3])]
                     except AddressValueError:
                         raise VLANDescriptionError(
-                            'Bad IPv4 range description of VLAN %s %s in %s.' % \
+                            'Bad IPv4 range description of VLAN %s %s in %s.' %
                             (self.routingdomain, self.vlanid, config.get("global", "vlans_file")))
 
                 if not l[4].startswith('-'):
@@ -985,7 +993,7 @@ class Context(object):
                         self.ipv6_aliases['local'] += [IPv6Network(l[4])]
                     except AddressValueError:
                         raise VLANDescriptionError(
-                            'Bad IPv6 range description of VLAN %s %s in %s.' % \
+                            'Bad IPv6 range description of VLAN %s %s in %s.' %
                             (self.routingdomain, self.vlanid, config.get("global", "vlans_file")))
 
         f = open(config.get("global", "transit_file"))
@@ -994,7 +1002,7 @@ class Context(object):
             # RRZE		3	rlan3		131.188.2.0/23		2001:638:A00:2::/64	RRZE-UNIX
             # to
             # ['RRZE','3','rlan3',131.188.2.0/23','2001:638:A00:2::/64','RZE-UNIX']
-            l = filter(lambda x: not x=='' and not x.startswith(';'), l.strip().split('\t'))
+            l = filter(lambda x: x != '' and not x.startswith(';'), l.strip().split('\t'))
 
             # Sufficient columns
             if not len(l) >= 4:
@@ -1016,9 +1024,10 @@ class Context(object):
                         if type(ifaces) == dict:
                             self.interfaces = ifaces
                     except:
-                        raise VLANDescriptionError(('Bad interface name in description of VLAN ' + \
-                            '%s %s in %s, must be in python dictionary string notation' % \
-                            (self.routingdomain, self.vlanid, config.get("global", "transit_file"))))
+                        raise VLANDescriptionError(
+                            'Bad interface name in description of VLAN %s %s in %s, must be in ' +
+                            'python dictionary string notation' %
+                            (self.routingdomain, self.vlanid, config.get("global", "transit_file")))
 
                 # If column starts with -, ignore
                 if not l[3].startswith('-'):
@@ -1027,7 +1036,7 @@ class Context(object):
                         self.ipv4_aliases['local'] += [IPv4Network(l[3])]
                     except AddressValueError:
                         raise VLANDescriptionError(
-                            'Bad IPv4 range description of VLAN %s %s in %s' % \
+                            'Bad IPv4 range description of VLAN %s %s in %s' %
                             (self.routingdomain, self.vlanid, config.get("global", "transit_file")))
 
                 # If column starts with -, ignore
@@ -1037,17 +1046,17 @@ class Context(object):
                         self.ipv6_aliases['local'] += [IPv6Network(l[4])]
                     except AddressValueError:
                         raise VLANDescriptionError(
-                            'Bad IPv6 range description of VLAN ' + \
-                            '%s %s in %s, must be in / notation' % \
+                            'Bad IPv6 range description of VLAN %s %s in %s, must be in ' +
+                            '/-notation' %
                             (self.routingdomain, self.vlanid, config.get("global", "transit_file")))
 
         if not self.ip_versions:
-            raise VLANDoesNotExistError('The VLAN (%s/%s) could not be found in VLANs nor in '+ \
-                'TNETs file.' % (self.routingdomain, self.vlanid))
+            raise VLANDoesNotExistError('The VLAN (%s/%s) could not be found in VLANs nor in ' +
+                                        'TNETs file.' % (self.routingdomain, self.vlanid))
 
         if not self.ip_versions:
-            log.info('VLAN (%s/%s) has no IPv4 and no IPv6 network address.' \
-                % (self.routingdomain, self.vlanid))
+            log.info('VLAN (%s/%s) has no IPv4 and no IPv6 network address.' %
+                     (self.routingdomain, self.vlanid))
 
     def get_router_info(self):
         '''Reads information about the routers for this context and stores
@@ -1061,8 +1070,8 @@ class Context(object):
         try:
             routernames = c.get('routingdomains', self.routingdomain).split(',')
         except ConfigParser.NoOptionError:
-            raise UnknownRoutingdomainError('Routingdomain (%s) not found in routers_file (%s).' % \
-                (self.routingdomain, routers_file))
+            raise UnknownRoutingdomainError('Routingdomain (%s) not found in routers_file (%s).' %
+                                            (self.routingdomain, routers_file))
 
         self.routers = []
         self.dialect = None
@@ -1077,12 +1086,12 @@ class Context(object):
                 if self.dialect is None:
                     self.dialect = self.routers[-1]['dialect']
                 elif self.routers[-1]['dialect'] != self.dialect:
-                    raise UnknownRouterError('Router section router_%s has different dialect ' + \
-                        'then other routers in routingdomain' % r)
+                    raise UnknownRouterError('Router section router_%s has different dialect ' +
+                                             'then other routers in routingdomain' % r)
                 self.routers[-1]['name'] = r
             except ConfigParser.NoSectionError:
-                raise UnknownRouterError('Router section (router_%s) not found in ' + \
-                    'routers_file (%s).' % (r, routers_file))
+                raise UnknownRouterError('Router section (router_%s) not found in ' +
+                                         'routers_file (%s).' % (r, routers_file))
 
         self.dialect_module = __import__('lib.dialects.' + self.dialect, fromlist='lib.dialects')
 
@@ -1093,9 +1102,9 @@ class Context(object):
         '''Returns Router object, needed for communication with router.'''
         ret = []
         for router in self.routers:
-            ret.append(self.dialect_module.Router(router['host'], self.user, self.pw, 
-                                                  read_running_config_first=read_running_config_first, 
-                                                  name=router['name']))
+            ret.append(self.dialect_module.Router(
+                router['host'], self.user, self.pw,
+                read_running_config_first=read_running_config_first, name=router['name']))
 
         return ret
 
@@ -1134,7 +1143,7 @@ class MacroCall(Trackable):
         '''Takes *string* and parses it to a MacroCall object.'''
 
         # Removing comments and unnecessary white spaces
-        string = string.split('#')[0].strip()
+        string = string.split('# ')[0].strip()
 
         # Retriving and checking macro name
         name = string.split('(')[0]
@@ -1184,7 +1193,7 @@ class Rule(Trackable):
         deligated to Filter.from_string.'''
 
         # Removing comments and unnecessary white spaces
-        string = string.split('#')[0].strip()
+        string = string.split('# ')[0].strip()
 
         # Retriving action
         action = string.split(' ')[0]
@@ -1198,7 +1207,7 @@ class Rule(Trackable):
             extensions.append(fstring.pop())
 
         # Create Filter object
-        filter = Filter.from_string(' '.join(fstring), context, temp_aliases, filename, lineno, 
+        filter = Filter.from_string(' '.join(fstring), context, temp_aliases, filename, lineno,
                                     parent, sourceline, ignore_mismatch)
 
         return cls(action, filter, extensions, filename, lineno, parent)
@@ -1375,7 +1384,8 @@ class Filter(Trackable):
     def __str__(self):
         if self.sports or self.dports:
             return '%s %s %s %s %s' % (','.join(self.protocols), ';'.join(map(str, self.sources)),
-                                       self.sports, ';'.join(map(str, self.destinations)), self.dports)
+                                       self.sports, ';'.join(map(str, self.destinations)),
+                                       self.dports)
         else:
             return ' '.join((','.join(self.protocols), ';'.join(map(str, self.sources)),
                              ';'.join(map(str, self.destinations))))

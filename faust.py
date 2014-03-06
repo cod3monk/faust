@@ -27,7 +27,7 @@ Usage:
   faust.py search <ip>
   faust.py rules <ip>
   faust.py create <routingdomain> <vlan_id>
-  faust.py trace <src_ip> <dst_ip> [-r]
+  faust.py trace <src_ip> <dst_ip> [<port>] [<protocol>] [-r]
   faust.py -h | --help
   faust.py --version
 
@@ -80,9 +80,14 @@ log = logging.getLogger('faust')
 # so every module can see lib
 sys.path.append(os.path.abspath(__file__))
 
+
 def compare_acls(routingdomain, vlanid, output=sys.stdout):
+    '''Compares local ACLs with active ACLs found on router.
+    
+    Will write diff information to `output` (default `sys.stdout`).
+    '''
     try:
-        ctxt = metacl.Context(routingdomain,vlanid)
+        ctxt = metacl.Context(routingdomain, vlanid)
         acl = ctxt.get_acl()
         acl.apply_macros()
         acl.compile()
@@ -92,12 +97,13 @@ def compare_acls(routingdomain, vlanid, output=sys.stdout):
 
     for v in ['ipv4', 'ipv6']:
         if v in acl.context.ip_versions:
-            for direction in ['in','out']:
+            for direction in ['in', 'out']:
                 same = acl.check(protocol=v, direction=direction, output=output)[0]
                 if not same:
                     return False
 
     return True
+
 
 def read_lannetfile(filename):
     '''Reads a Network or VLAN description file, like VLANs or TNETs and returns a list
@@ -126,27 +132,29 @@ def read_lannetfile(filename):
 
     return nets
 
+
 def print_conflicts(confs):
     '''Prints the list of given conflicts on log.info'''
     lines = []
     for c in confs:
         #conflicts from the same line are only shown once
         if(c[2].lineno not in lines):
-            f=open(c[2].filename)
-            polLines=f.readlines()
+            f = open(c[2].filename)
+            polLines = f.readlines()
             log.info('')
-            log.info("in file %s:"%c[2].filename)
+            log.info("in file %s:" % c[2].filename)
             lines += [c[2].lineno]
             for line in c[2:]:
-                log.info("%s in line %s" %(polLines[line.lineno-1],line.lineno))
+                log.info("%s in line %s" % (polLines[line.lineno-1], line.lineno))
 
             #diffrent presentation style:
             #for line in c[2:]:
             #    log.info("%s in line %s" %(line,line.lineno))
             #    lines += [line.lineno]
 
+
 def choose_conflicts(conflicts):
-    '''Shows all *conflicts* by types and prints them on log.info if choosen'''
+    '''Shows all `conflicts` by types and prints them on `log.info` if choosen'''
     #split up conflicts into types
     notLocal = []
     contained = []
@@ -162,12 +170,12 @@ def choose_conflicts(conflicts):
         elif c[0] == "Rule never reached":
             neverReached += [c]
         else:
-            log.error("Conflict name not found: %s"%c[0])
+            log.error("Conflict name not found: %s" % c[0])
 
-    log.info("%s Conflicts for Rule not in local (1)"%len(notLocal))
-    log.info("%s Conflicts for Rule contained in later rule (2)"%len(contained))
-    log.info("%s Conflicts for Rules overlaps (3)"%len(overlap))
-    log.info("%s Conflicts for Rule never reached (4)"%len(neverReached))
+    log.info("%s Conflicts for Rule not in local (1)" % len(notLocal))
+    log.info("%s Conflicts for Rule contained in later rule (2)" % len(contained))
+    log.info("%s Conflicts for Rules overlaps (3)" % len(overlap))
+    log.info("%s Conflicts for Rule never reached (4)" % len(neverReached))
     log.info("Choose from Conflicts or (n) to continue")
     choice = sys.stdin.readline()
     while(choice != "n\n"):
@@ -185,15 +193,16 @@ def choose_conflicts(conflicts):
             log.info("Rule never reached:")
             print_conflicts(neverReached)
         log.info('\n')
-        log.info("%s Conflicts for Rule not in local (1)"%len(notLocal))
-        log.info("%s Conflicts for Rule contained in later rule (2)"%len(contained))
-        log.info("%s Conflicts for Rules overlaps (3)"%len(overlap))
-        log.info("%s Conflicts for Rule never reached (4)"%len(neverReached))
+        log.info("%s Conflicts for Rule not in local (1)" % len(notLocal))
+        log.info("%s Conflicts for Rule contained in later rule (2)" % len(contained))
+        log.info("%s Conflicts for Rules overlaps (3)" % len(overlap))
+        log.info("%s Conflicts for Rule never reached (4)" % len(neverReached))
         log.info("Choose from Conflicts or (n) to continue")
         choice = sys.stdin.readline()
 
-def main(arguments):
 
+def main(arguments):
+    '''Main function taking care of all command-line functionality.'''
     if len(sys.argv) <= 1:
         print >> sys.stderr, "No arguments given"
         usage()
@@ -223,13 +232,13 @@ def main(arguments):
         fail_count = []
         for vlanid in vlans:
             try:
-                context = metacl.Context(routingdomain,vlanid)
+                context = metacl.Context(routingdomain, vlanid)
                 acl = context.get_acl()
                 #make sanity_check for vlanid
                 if not arguments['--quiet']:
                     conflicts = acl.sanity_check()
                     if conflicts:
-                        log.info("sanity_check found %s Conflicts in %s"%(len(conflicts),vlanid))
+                        log.info("sanity_check found %s Conflicts in %s" % (len(conflicts), vlanid))
                         log.info("(y) to show or any other key to skip and continue compiling")
                         choice = sys.stdin.readline()
                         if choice == "y\n":
@@ -252,12 +261,12 @@ def main(arguments):
             if ipv6:
                 ipv6_count += 1
 
-        log.info("Successfully compiled %s ACLs and %.2f %% with IPv6" % \
-            (len(vlans)-len(fail_count), float(ipv6_count)/float(len(vlans))*100))
+        log.info("Successfully compiled %s ACLs and %.2f %% with IPv6" %
+                 (len(vlans)-len(fail_count), float(ipv6_count)/float(len(vlans))*100))
 
         if fail_count:
-            log.warning("%s ACLs did not compile, they are: %s" % \
-                (len(fail_count), str(fail_count)))
+            log.warning("%s ACLs did not compile, they are: %s" %
+                        (len(fail_count), str(fail_count)))
 
     elif arguments['install']:
         routingdomain, vlans = arguments['<routingdomain>'], arguments['<vlan_id>']
@@ -267,7 +276,8 @@ def main(arguments):
             try:
                 l = os.listdir(lib.config.get('global', 'policies_dir')+'/'+routingdomain)
             except OSError as e:
-                log.critical("Could not read policy directory for routing domain '"+routingdomain+"': "+str(e))
+                log.critical("Could not read policy directory for routing domain '%s': %s" %
+                             (routingdomain, e))
                 sys.exit(2)
             ext = lib.config.get('global', 'policies_ext')
             vlans = map(lambda x: x[:-len(ext)], filter(lambda x: x.endswith(ext), l))
@@ -279,13 +289,13 @@ def main(arguments):
 
         for vlanid in vlans:
             try:
-                context = metacl.Context(routingdomain,vlanid)
+                context = metacl.Context(routingdomain, vlanid)
                 acl = context.get_acl()
                 #make sanity_check for vlanid
                 if not arguments['--quiet']:
                     conflicts = acl.sanity_check()
                     if conflicts:
-                        log.info("sanity_check found %s Conflicts in %s"%(len(conflicts),vlanid))
+                        log.info("sanity_check found %s Conflicts in %s" % (len(conflicts), vlanid))
                         log.info("(y) to show any other key to skip and continue compiling")
                         choice = sys.stdin.readline()
                         if choice == "y\n":
@@ -310,12 +320,12 @@ def main(arguments):
             if ipv6:
                 ipv6_count += 1
 
-        log.info("Successfully installed %s ACLs and %.2f %% with IPv6" % \
-            (len(vlans)-len(fail_count), float(ipv6_count)/float(len(vlans))*100))
+        log.info("Successfully installed %s ACLs and %.2f %% with IPv6" %
+                 (len(vlans)-len(fail_count), float(ipv6_count)/float(len(vlans))*100))
 
         if fail_count:
-            log.warning("%s ACLs did not install, they are: %s" % \
-                (len(fail_count), str(fail_count)))
+            log.warning("%s ACLs did not install, they are: %s" %
+                        (len(fail_count), str(fail_count)))
 
     elif arguments['search']:
         try:
@@ -405,12 +415,11 @@ def main(arguments):
                 default = None
 
             if not default:
-                log.error('No VLAN found for given IP. Aborting. Set '+
-                    'default_block_vlan in config to enable a default block VLAN.')
+                log.error('No VLAN found for given IP. Aborting. Set default_block_vlan in ' +
+                          'config to enable a default block VLAN.')
                 sys.exit(2)
 
-            log.warning('No VLAN found for given IP. Making use of default VLAN: '+
-                str(default)+'.')
+            log.warning('No VLAN found for given IP. Making use of default VLAN: %s.' % default)
             found = [default]
         elif len(found) > 1:
             log.warning('Multiple VLANs found for given IP, continuing anyway.')
@@ -431,7 +440,7 @@ def main(arguments):
             l = f.readlines()
             l.insert(0, 'block('+arguments['<ip>']+') # '+comment+'\n')
             f.close()
-            f = open(c.get_policy_path(),'w')
+            f = open(c.get_policy_path(), 'w')
             f.writelines(l)
             f.close()
 
@@ -468,7 +477,7 @@ def main(arguments):
                     ip_versions.add('ipv6')
                     found.append(n)
 
-        if len(found) >0:
+        if len(found) > 0:
             if len(found) > 1:
                 log.warning('Multiple VLANs found for given IP, continuing anyway.')
             for n in found:
@@ -483,7 +492,8 @@ def main(arguments):
                 linenos = []
                 for r in rules:
                     f = r.filter
-                    if r.lineno not in linenos and any(map(lambda x: ip in x, f.sources+f.destinations)):
+                    if r.lineno not in linenos and \
+                            any(map(lambda x: ip in x, f.sources+f.destinations)):
                         print '%s\t%s' % (r.lineno, r.sourceline.strip())
                         linenos.append(r.lineno)
         else:
@@ -509,9 +519,10 @@ def main(arguments):
                 if n[4] and ip in n[4]:
                     found.append(n)
 
-        if len(found) >0:
+        if len(found) > 0:
             if len(found) > 1:
-                log.warning('Multiple VLANs (%s) found for given IP (%s). Continuing...' % (found, ip))
+                log.warning('Multiple VLANs (%s) found for given IP (%s). Continuing...' %
+                            (found, ip))
             for n in found:
                 rd, vlanid = n[0], n[1]
                 log.info('Unblocking IP in VLAN %s on %s...' % (vlanid, rd))
@@ -531,12 +542,12 @@ def main(arguments):
                 f.close()
 
                 if orig != new:
-                    f = open(c.get_policy_path(),'w')
+                    f = open(c.get_policy_path(), 'w')
                     f.write(new)
                     f.close()
                 else:
-                    log.warning('Could not identify block-line in '+c.get_policy_path()+
-                    '. Only exact matches can be found, please check manualy.')
+                    log.warning('Could not identify block-line in %s. Only exact matches can be ' +
+                                'found, please check manualy.' % c.get_policy_path())
 
                 # RCS checkin
                 if lib.config.get('global', 'use_rcs') == 'true':
@@ -561,7 +572,8 @@ def main(arguments):
             try:
                 l = os.listdir(lib.config.get('global', 'policies_dir')+'/'+routingdomain)
             except OSError as e:
-                log.error("Could not read policy directory for routing domain '"+routingdomain+"': "+str(e))
+                log.error("Could not read policy directory for routing domain '%s': %e" %
+                          (routingdomain, str(e)))
                 sys.exit(2)
             ext = lib.config.get('global', 'policies_ext')
             vlans = map(lambda x: x[:-len(ext)], filter(lambda x: x.endswith(ext), l))
@@ -592,11 +604,11 @@ def main(arguments):
 
         # Loading umaks and gid form configuration
         try:
-            umask = int(lib.config.get('global','umask'))
+            umask = int(lib.config.get('global', 'umask'))
         except:
             umask = None
         try:
-            gid = int(lib.config.get('global','groupid'))
+            gid = int(lib.config.get('global', 'groupid'))
         except:
             gid = None
 
@@ -646,7 +658,8 @@ def main(arguments):
             try:
                 l = os.listdir(lib.config.get('global', 'policies_dir')+'/'+routingdomain)
             except OSError as e:
-                log.error("Could not read policy directory for routing domain '"+routingdomain+"': "+str(e))
+                log.error("Could not read policy directory for routing domain '%s': %s" %
+                          (routingdomain, str(e)))
                 sys.exit(2)
             ext = lib.config.get('global', 'policies_ext')
             vlans = map(lambda x: x[:-len(ext)], filter(lambda x: x.endswith(ext), l))
@@ -657,7 +670,7 @@ def main(arguments):
         fail_count = []
         for vlanid in vlans:
             try:
-                context = metacl.Context(routingdomain,vlanid)
+                context = metacl.Context(routingdomain, vlanid)
                 macl = context.get_acl()
                 macl.apply_macros()
                 conflicts += macl.sanity_check()
@@ -672,10 +685,10 @@ def main(arguments):
 
         if fail_count:
             log.info("%s ACLS could not be checked, they are: %s" %
-                (len(fail_count), str(fail_count)))
+                     (len(fail_count), str(fail_count)))
 
         if conflicts != []:
-            log.info("%s Conflicts found:"%len(conflicts))
+            log.info("%s Conflicts found:" % len(conflicts))
             log.info("Show conflicts? (y)")
             choice = sys.stdin.readline()
             if choice == "y\n":
@@ -689,7 +702,15 @@ def main(arguments):
             src_ip = ipaddr.IPAddress(arguments['<src_ip>'])
             dst_ip = ipaddr.IPAddress(arguments['<dst_ip>'])
             if arguments['--reverse']:
-                src_ip,dst_ip = dst_ip,src_ip
+                src_ip, dst_ip = dst_ip, src_ip
+            if arguments['<protocol>'] is not None:
+                if arguments['<protocol>'] in lib.metacl.protocol_names:
+                    protocol = arguments['<protocol>']
+                else:
+                    log.error("Given protocol not supported: " + arguments['<protocol>'])
+                    sys.exit(2)
+            if arguments['<port>'] is not None:
+                port = int(arguments['<port>'])
         except Exception, err:
             log.error(str(err))
             sys.exit(2)
@@ -714,7 +735,7 @@ def main(arguments):
                 if n[3] and dst_ip in n[3]:
                     found_dst.append(n)
 
-        if len(found_src) >0 and len(found_dst):
+        if len(found_src) > 0 and len(found_dst):
             if len(found_src) > 1 or len(found_dst) > 1:
                 #VLAN file probably wrong
                 log.warning('Multiple VLANs found for given IP. Aborting')
@@ -727,22 +748,30 @@ def main(arguments):
             acl.apply_macros()
             rules = acl.get_rules(ip_versions=list(ip_versions), directions='in')
             #filter rules to match only when destination is dst_ip
-            rules = filter(lambda x: any(map(lambda y: dst_ip in y,x.filter.destinations)),rules)
+            rules = filter(lambda x: any(map(lambda y: dst_ip in y, x.filter.destinations)), rules)
             rules = filter(lambda x: any(map(lambda y: src_ip in y, x.filter.sources)), rules)
+            if arguments['<protocol>'] is not None:
+                rules = filter(lambda x: any(map(lambda y: y == protocol, x.filter.protocols)),
+                               rules)
+            if arguments['<port>'] is not None:
+                rules = filter(lambda x: (port in x.filter.sports) or (port in x.filter.dports),
+                               rules)
 
-            print "From %s VLAN %s:" % (rd, vlanid)
-            print "lineno  rule"
-            linenos = []
-            for r in rules:
-                #f = r.filter
-                if r.lineno not in linenos:
-                    if 'permit ' not in r.sourceline and 'deny ' not in r.sourceline:
-                        info = ' ('+str(r)+')'
-                    else:
-                        info = ''
-                    print '%s\t%s%s' % (r.lineno, r.sourceline.strip(), info)
-                    #to prevent same rule printed twice
-                    linenos.append(r.lineno)
+            if rules:
+                print "From %s VLAN %s:" % (rd, vlanid)
+                print "lineno  rule"
+                linenos = []
+                for r in rules:
+                    #f = r.filter
+                    if r.lineno not in linenos:
+                        if 'permit ' not in r.sourceline and 'deny ' not in r.sourceline:
+                            info = ' ('+str(r)+')'
+                        else:
+                            info = ''
+                        print '%s\t%s%s' % (r.lineno, r.sourceline.strip(), info)
+                        #to prevent same rule printed twice
+                        linenos.append(r.lineno)
+                print
 
             #for destination
             rd, vlanid = found_dst[0][0], found_dst[0][1]
@@ -751,23 +780,30 @@ def main(arguments):
             acl.apply_macros()
             rules = acl.get_rules(ip_versions=list(ip_versions), directions='out')
             #filter rules to match only when source is src_ip
-            rules = filter(lambda x: any(map(lambda y: src_ip in y,x.filter.sources)),rules)
-            rules = filter(lambda x: any(map(lambda y: dst_ip in y, x.filter.destinations)), rules)
+            rules = filter(lambda x: any(map(lambda y: src_ip in y, x.filter.sources)), rules)
+            rules = filter(lambda x: any(map(lambda y: dst_ip in y, x.filter.destinations)),
+                           rules)
+            if arguments['<protocol>'] is not None:
+                rules = filter(lambda x: any(map(lambda y: y == protocol, x.filter.protocols)),
+                               rules)
+            if arguments['<port>'] is not Port:
+                rules = filter(lambda x: (port in x.filter.sports) or (port in x.filter.dports),
+                               rules)
 
-            print
-            print "From %s VLAN %s:" % (rd, vlanid)
-            print "lineno  rule"
-            linenos = []
-            for r in rules:
-                f = r.filter
-                if r.lineno not in linenos:
-                    if 'permit ' not in r.sourceline and 'deny ' not in r.sourceline:
-                        info = ' ('+str(r)+')'
-                    else:
-                        info = ''
-                    print '%s\t%s%s' % (r.lineno, r.sourceline.strip(), info)
-                    #to prevent same rule printed twice
-                    linenos.append(r.lineno)
+            if rules:
+                print "From %s VLAN %s:" % (rd, vlanid)
+                print "lineno  rule"
+                linenos = []
+                for r in rules:
+                    f = r.filter
+                    if r.lineno not in linenos:
+                        if 'permit ' not in r.sourceline and 'deny ' not in r.sourceline:
+                            info = ' ('+str(r)+')'
+                        else:
+                            info = ''
+                        print '%s\t%s%s' % (r.lineno, r.sourceline.strip(), info)
+                        #to prevent same rule printed twice
+                        linenos.append(r.lineno)
 
         else:
             log.error('No VLAN found for given source or destination. Aborting.')
