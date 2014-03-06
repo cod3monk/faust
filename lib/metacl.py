@@ -404,7 +404,7 @@ class ACL(Trackable):
 
         # Removing lines which are blank or contain only comments
         # Line numbers are preserved
-        lines = filter(lambda x: not len(x[1].strip()) == 0 and not x[1].strip().startswith('# '),
+        lines = filter(lambda x: not len(x[1].strip()) == 0 and not x[1].strip().startswith('#'),
                        lines)
         # Strip all leading and ending whitespaces from lines
         lines = map(lambda x: (x[0], x[1].strip()), lines)
@@ -885,7 +885,7 @@ class Context(object):
             if not v:
                 continue
             for l in open(v).readlines():
-                if not l.startswith('# ') and not l.startswith(';') and len(l) > 0:
+                if not l.startswith('#') and not l.startswith(';') and len(l) > 0:
                     self.set_alias(k, l.strip())
 
         # Static and globally present aliases:
@@ -1143,7 +1143,7 @@ class MacroCall(Trackable):
         '''Takes *string* and parses it to a MacroCall object.'''
 
         # Removing comments and unnecessary white spaces
-        string = string.split('# ')[0].strip()
+        string = string.split('#')[0].strip()
 
         # Retriving and checking macro name
         name = string.split('(')[0]
@@ -1193,7 +1193,7 @@ class Rule(Trackable):
         deligated to Filter.from_string.'''
 
         # Removing comments and unnecessary white spaces
-        string = string.split('# ')[0].strip()
+        string = string.split('#')[0].strip()
 
         # Retriving action
         action = string.split(' ')[0]
@@ -1203,6 +1203,7 @@ class Rule(Trackable):
         fstring = string.split(' ')[1:]
         # Extract extensions from the end
         extensions = []
+        print fstring
         while fstring[-1] in EXTENSION_NAMES:
             extensions.append(fstring.pop())
 
