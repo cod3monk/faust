@@ -172,11 +172,12 @@ class Ports:
             self.ranges = []
 
     def add_port(self, port):
-        # Only add port if not yet existant
+        '''Adds single port. Duplicates are ignored'''
         if port not in self:
             self.singles.append(port)
 
     def add_range(self, start, end):
+        '''Adds port range from `start` to and including `end`.'''
         assert start <= end, "range has to be given in increasing order " + \
             "(e.g. NOT 42 to 23, but 23 to 42)"
 
@@ -599,8 +600,7 @@ class ACL(Trackable):
     def check(self, direction='in', protocol='ipv4', output=None):
         '''Compares *other* with this ACLs *protocol* rules in *direction*.
 
-        Macros will be applied, if not done before. See :func:`apply_macros`
-        '''
+        Macros will be applied, if not done before. See :func:`apply_macros`'''
 
         if not self.context:
             raise NeedsContextError('Can only be compiled with a context!')
@@ -1203,7 +1203,7 @@ class Rule(Trackable):
         fstring = string.split(' ')[1:]
         # Extract extensions from the end
         extensions = []
-        print fstring
+        
         while fstring[-1] in EXTENSION_NAMES:
             extensions.append(fstring.pop())
 
