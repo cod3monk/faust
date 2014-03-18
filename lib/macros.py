@@ -201,15 +201,15 @@ class lan(Macro):
 
             # Rules to be inserted at top of IN list:
             rules_in = [
-                'permit ipfirstlast 224.0.0.1',
-                'permit udpfirstlast 1985 224.0.0.2 1985',
-                'permit udpfirstlast 1985 224.0.0.102 1985',
-                'permit ipfirstlast 224.0.0.13',
-                'permit tcp localfirstlast established',
-                'permit icmp localfirstlast',
-                'permit udp localntp_server 123',
-                'permit udp localfirst 123',
-                'deny ip anyfirstlast',
+                'permit ip $firstlast 224.0.0.1', 
+                'permit udp $firstlast 1985 224.0.0.2 1985',
+                'permit udp $firstlast 1985 224.0.0.102 1985', 
+                'permit ip $firstlast 224.0.0.13',
+                'permit tcp local $firstlast established',
+                'permit icmp local $firstlast', 
+                'permit udp local $ntp_server 123',
+                'permit udp local $first 123', 
+                'deny ip any $firstlast', 
             ]
 
             # We have to reverse the order, since insertion will be done at beginning of list
@@ -222,9 +222,9 @@ class lan(Macro):
 
             # Rules to be inserted at top of OUT list:
             rules_out = [
-                'permit ipfirstlast local',
-                'permit icmp localfirstlast',
-                'permit udpntp_server 123 local',
+                'permit ip $firstlast local', 
+                'permit icmp local $firstlast', 
+                'permit udp $ntp_server 123 local',
                 'permit ip any 224.0.0.0/4',
             ]
 
@@ -258,6 +258,7 @@ class dhcp(Macro):
 
     dhcp_classes = {
         'rrze': '10.188.12.19;10.188.12.27',
+        'wiso': '10.188.12.34;10.188.12.35',
         'linux': '131.188.3.145',
         'solaris': '131.188.3.89',
         'mac': '131.188.3.117'
@@ -285,7 +286,7 @@ class dhcp(Macro):
             'permit udp local 68 255.255.255.255 67', parent=self, context=macl.context))
 
         acl_in.append(metacl.Rule.from_string(
-            'permit udp local 68dhcp 67',
+            'permit udp local 68 $dhcp 67',
             temp_aliases=temp_aliases, context=macl.context, parent=self))
 
         # Peer-link / Nexus dhcp-relay workaround
@@ -296,7 +297,7 @@ class dhcp(Macro):
         # Damits per RELAY funktioniert, muss aber der lokale server den Router
         # erreichen (d.h. server(bootps) --> router(bootps) )
         acl_in.append(metacl.Rule.from_string(
-            'permit udpdhcprouters 67',
+            'permit udp $dhcp $routers 67',
             temp_aliases=temp_aliases, context=macl.context, parent=self))
 
         macl.acl_in = acl_in + macl.acl_in
@@ -304,20 +305,20 @@ class dhcp(Macro):
         acl_out = []
         #out 'permit udpROUTERS 67 255.255.255.255 68',
         acl_out.append(metacl.Rule.from_string(
-            'permit udprouters 67 255.255.255.255 68',
+            'permit udp $routers 67 255.255.255.255 68',
             temp_aliases=temp_aliases, context=macl.context, parent=self))
         #out 'permit udpROUTERS eq 67 local 68',
         acl_out.append(metacl.Rule.from_string(
-            'permit udprouters 67 local 68',
+            'permit udp $routers 67 local 68',
             temp_aliases=temp_aliases, context=macl.context, parent=self))
 
         #out 'permit udpDHCP_SERVERS local 68'
         acl_out.append(metacl.Rule.from_string(
-            'permit udpdhcp local 68',
+            'permit udp $dhcp local 68',
             temp_aliases=temp_aliases, context=macl.context, parent=self))
         #out 'permit udpDHCP_SERVERSROUTERS 67'
         acl_out.append(metacl.Rule.from_string(
-            'permit udpdhcprouters 67',
+            'permit udp $dhcp $routers 67',
             temp_aliases=temp_aliases, context=macl.context, parent=self))
 
         macl.acl_out = acl_out + macl.acl_out
@@ -399,10 +400,10 @@ class wlan(Macro):
         local = macl.context.get_alias('local', ip_versions='ipv4')[0]
 
         macl.acl_in.insert(0, metacl.Rule.from_string(
-                           'permit ip localwlancontroller', context=macl.context, parent=self))
+                           'permit ip local $wlancontroller', context=macl.context, parent=self))
 
         macl.acl_out.insert(0, metacl.Rule(
-                            'permit ipwlancontroller local', context=macl.context, parent=self))
+                            'permit ip $wlancontroller local', context=macl.context, parent=self))
 
 
 class netbackup(Macro):
@@ -414,35 +415,35 @@ class netbackup(Macro):
         if len(self.args) == 0:
             # Open whole net to netbackup
             macl.acl_in.insert(0, metacl.Rule.from_string(
-                'permit tcp local 13782netbackup established',
+                'permit tcp local 13782 $netbackup established',
                 context=macl.context, parent=self))
 
             macl.acl_in.insert(0, metacl.Rule.from_string(
-                'permit tcp localnetbackup 13782',
+                'permit tcp local $netbackup 13782',
                 context=macl.context, parent=self))
 
             macl.acl_in.insert(0, metacl.Rule.from_string(
-                'permit tcp localnetbackup 13724',
+                'permit tcp local $netbackup 13724',
                 context=macl.context, parent=self))
 
             macl.acl_in.insert(0, metacl.Rule.from_string(
-                'permit tcp localnetbackup 13720',
+                'permit tcp local $netbackup 13720',
                 context=macl.context, parent=self))
 
             macl.acl_out.insert(0, metacl.Rule.from_string(
-                'permit tcpnetbackup 13782 local established',
+                'permit tcp $netbackup 13782 local established',
                 context=macl.context, parent=self))
 
             macl.acl_out.insert(0, metacl.Rule.from_string(
-                'permit tcpnetbackup 13724 local established',
+                'permit tcp $netbackup 13724 local established',
                 context=macl.context, parent=self))
 
             macl.acl_out.insert(0, metacl.Rule.from_string(
-                'permit tcpnetbackup 13720 local established',
+                'permit tcp $netbackup 13720 local established',
                 context=macl.context, parent=self))
 
             macl.acl_out.insert(0, metacl.Rule.from_string(
-                'permit tcpnetbackup local 13782',
+                'permit tcp $netbackup local 13782',
                 context=macl.context, parent=self))
 
         else:
@@ -535,10 +536,10 @@ class nagios(Macro):
         if len(self.args) == 0:
             # Open whole net to nagios
             macl.acl_in.insert(0, metacl.Rule.from_string(
-                'permit icmp,tcp,udp localnagios', context=macl.context, parent=self))
+                'permit icmp,tcp,udp local $nagios', context=macl.context, parent=self))
 
             macl.acl_out.insert(0, metacl.Rule.from_string(
-                'permit icmp,tcp,udpnagios local', context=macl.context, parent=self))
+                'permit icmp,tcp,udp $nagios local', context=macl.context, parent=self))
         else:
             for h in self.args:
                 # Open only given hosts to nagios
@@ -562,17 +563,17 @@ class nagios(Macro):
 class license(Macro):
     def call(self, macl):
         macl.acl_in.insert(0, metacl.Rule.from_string(
-            'permit udp locallicense 5093',
+            'permit udp local $license 5093',
             context=macl.context, parent=self))
         macl.acl_in.insert(0, metacl.Rule.from_string(
-            'permit tcp locallicense 1700-1799,16286',
+            'permit tcp local $license 1700-1799,16286',
             context=macl.context, parent=self))
 
         macl.acl_out.insert(0, metacl.Rule.from_string(
-            'permit udplicense 5093 local',
+            'permit udp $license 5093 local',
             context=macl.context, parent=self))
         macl.acl_out.insert(0, metacl.Rule.from_string(
-            'permit tcplicense 1700-1799,16286 local 1024-65535',
+            'permit tcp $license 1700-1799,16286 local 1024-65535',
             context=macl.context, parent=self))
 
 

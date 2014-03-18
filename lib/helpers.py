@@ -34,11 +34,6 @@ class Trackable(object):
         self.parent = parent
         if parent:
             self.originate_from(parent)
-        # Somehow not quite working:
-        #if not filename and not lineno:
-        #    co = CodeOrigin(level=2)
-        #    self.filename = co.filename()
-        #    self.lineno = co.lineno()
     
     def originate_from(self, parent):
         self.filename = parent.filename
@@ -65,34 +60,6 @@ class Trackable(object):
             base += ':\n\t%s' % self.get_sourceline()
         return base
 
-class CodeOrigin(object):
-    """Based on code by Danny Yoo (dyoo@hkn.eecs.berkeley.edu)"""
-    
-    def __init__(self, level=1):
-        """*level* defines which frame on the stack should be looked for.
-        level=0 would return this class.
-        level=1 of the calling location
-        level=2 of the callers calling location
-        and so forth.
-        """
-        
-        self.frame = inspect.currentframe()
-        while level > 0:
-            self.frame = self.frame.f_back
-            level -= 1
-        
-    def lineno(self):
-        """Returns the current line number in our program."""
-        return self.frame.f_lineno
-    
-    def filename(self):
-        """Returns the filename of the code."""
-        return self.frame.f_code.co_filename
-    
-    def name(self):
-        """Returns the name with which the code was defined"""
-        return self.frame.f_code.co_name
-
 def build_alias_list(aliases):
     '''Builds flat list of IP Network aliases.
     *aliases* can either be a space delimited string or a list of strings parsable by 
@@ -111,6 +78,12 @@ def build_alias_list(aliases):
     return r
 
 def set_file_rights(path):
+    '''Changes group permissions and ownership of file or directory according to configuration.
+    
+    If compiled_umask is set, will change group permissions of `path` to given value. If `path` is a
+    directory it will also set all executable bits to one.
+    
+    If compiled_groupid is set, will change group ownership to given gid.'''
     try:
         umask = int(config.get('global','compiled_umask'))
         if os.path.isdir(path):
