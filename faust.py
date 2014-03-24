@@ -419,7 +419,7 @@ def main(arguments):
                           'config to enable a default block VLAN.')
                 sys.exit(2)
 
-            log.warning('No VLAN found for given IP. Making use of default VLAN: %s.' % default)
+            log.warning('No VLAN found for given IP. Making use of default VLAN: %s.' % (default,))
             found = [default]
         elif len(found) > 1:
             log.warning('Multiple VLANs found for given IP, continuing anyway.')
