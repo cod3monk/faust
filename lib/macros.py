@@ -201,15 +201,15 @@ class lan(Macro):
 
             # Rules to be inserted at top of IN list:
             rules_in = [
-                'permit ip $firstlast 224.0.0.1', 
+                'permit ip $firstlast 224.0.0.1',
                 'permit udp $firstlast 1985 224.0.0.2 1985',
-                'permit udp $firstlast 1985 224.0.0.102 1985', 
+                'permit udp $firstlast 1985 224.0.0.102 1985',
                 'permit ip $firstlast 224.0.0.13',
                 'permit tcp local $firstlast established',
-                'permit icmp local $firstlast', 
+                'permit icmp local $firstlast',
                 'permit udp local $ntp_server 123',
-                'permit udp local $first 123', 
-                'deny ip any $firstlast', 
+                'permit udp local $first 123',
+                'deny ip any $firstlast',
             ]
 
             # We have to reverse the order, since insertion will be done at beginning of list
@@ -222,8 +222,8 @@ class lan(Macro):
 
             # Rules to be inserted at top of OUT list:
             rules_out = [
-                'permit ip $firstlast local', 
-                'permit icmp local $firstlast', 
+                'permit ip $firstlast local',
+                'permit icmp local $firstlast',
                 'permit udp $ntp_server 123 local',
                 'permit ip any 224.0.0.0/4',
             ]

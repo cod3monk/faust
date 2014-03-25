@@ -1203,7 +1203,7 @@ class Rule(Trackable):
         fstring = string.split(' ')[1:]
         # Extract extensions from the end
         extensions = []
-        
+
         while fstring[-1] in EXTENSION_NAMES:
             extensions.append(fstring.pop())
 
