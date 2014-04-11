@@ -851,6 +851,26 @@ class ACL(Trackable):
             if not any(map(lambda x: n in x, self.context.get_alias('local'))):
                 return False
         return True
+    
+    def is_default(self):
+        '''Returns True if ACL is equal to default ACL.'''
+        default = ACL.from_file(config.get('global', 'default_pol'), self.context)
+        if self.macros_applied:
+            default.apply_macros()
+        
+        return self == default
+    
+    def __eq__(self, other):
+        '''Returns True if ACL is equal to *other*.
+        
+        If macros have only been applied on one ACL, will return False.'''
+        # TODO preserve original ACL even after macros have been applied
+        
+        return (self.macros_applied == other.macros_applied and
+                self.macros == other.macros and
+                self.acl_in == other.acl_in and
+                self.acl_out == other.acl_out and
+                self.context == other.context)
 
     def __str__(self):
         return 'ACL:\n MACROS:\n%s\n ACL IN:\n%s\n ACL OUT:\n%s' % \
@@ -1120,6 +1140,15 @@ class Context(object):
     def get_acl(self):
         '''Returns :class:`ACL` object for this context'''
         return ACL.from_context(self)
+        
+    def __eq__(self, other):
+        '''Returns True if routingdomain, vlanid and interface are the same.
+        
+        Other parameters are not checked, since the should be equal.'''
+        return (self.routingdomain == other.routingdomain and
+                self.vlanid == other.vlanid and
+                self.interfaces == other.interfaces)
+                
 
 
 class MacroCall(Trackable):
@@ -1160,6 +1189,13 @@ class MacroCall(Trackable):
     def call(self, acl):
         '''Applies macro with arguments to *acl* ACL object.'''
         return self.macro.call(acl)
+        
+    def __eq__(self, other):
+        '''Returns True if macro name and arguments are the same.
+        
+        Other parameters are not checked.'''
+        return (self.name == other.name and
+                self.arguments == other.arguments)
 
 
 class Rule(Trackable):
@@ -1232,6 +1268,14 @@ class Rule(Trackable):
             r += ', lineno=%s' % self.lineno.__repr__()
 
         return r + ')'
+    
+    def __eq__(self, other):
+        '''Returns True if action, filter and extensions are the same.
+        
+        Other parameters are not checked.'''
+        return (self.action == other.action and
+                self.filter == other.filter and
+                self.extensions == other.extensions)
 
 
 class Filter(Trackable):
@@ -1407,3 +1451,13 @@ class Filter(Trackable):
             r += ', lineno=%s' % self.lineno.__repr__()
 
         return r + ')'
+    
+    def __eq__(self, other):
+        '''Returns True if protocols, sources, sports, destinations and dports are the same.
+        
+        Other parameters are not checked.'''
+        return (self.protocols == other.protocols and
+                self.sources == other.sources and
+                self.sports == other.sports and
+                self.destinations == other.destinations and
+                self.dports == other.dports)
