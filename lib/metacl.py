@@ -77,7 +77,7 @@ PROTOCOL_NAMES = ['tcp', 'udp', 'ip', 'icmp', 'esp', 'ahp', 'pim', 'igmp', 'ospf
 # Protocol names that support ports (they must still apprear above)
 PORT_PROTOCOLS = ['tcp', 'udp']
 # Extension names
-EXTENSION_NAMES = ['established', 'log', 'echo', 'echo-reply', 'ttl-exceeded']
+EXTENSION_NAMES = ['established', 'log', 'echo', 'echo-reply', 'ttl-exceeded', 'time-exceeded']
 # Directions
 DIRECTIONS = ['in', 'out']
 
@@ -387,11 +387,20 @@ class ACL(Trackable):
     # will break if that is done multiple times
     macros_applied = False
 
-    def __init__(self, acl_in=[], acl_out=[], macros=[], context=None,
+    def __init__(self, acl_in=None, acl_out=None, macros=None, context=None,
                  filename=None, parent=None):
-        self.macros = macros
-        self.acl_in = acl_in
-        self.acl_out = acl_out
+        if macros is None:
+            self.macros = []
+        else:
+            self.macros = macros
+        if acl_in is None:
+            self.acl_in = []
+        else:
+            self.acl_in = acl_in
+        if acl_out is None:
+            self.acl_out = []
+        else:
+            self.acl_out = acl_out
         self.context = context
         Trackable.__init__(self, filename, None, parent)
 
@@ -852,24 +861,32 @@ class ACL(Trackable):
                 return False
         return True
     
-    def is_default(self):
+    def is_default(self, macros=True, extensions=True):
         '''Returns True if ACL is equal to default ACL.'''
         default = ACL.from_file(config.get('global', 'default_pol'), self.context)
         if self.macros_applied:
             default.apply_macros()
         
-        return self == default
+        return self.__eq__(default, macros=macros, extensions=extensions)
     
-    def __eq__(self, other):
+    def __eq__(self, other, macros=True, extensions=True):
         '''Returns True if ACL is equal to *other*.
         
         If macros have only been applied on one ACL, will return False.'''
         # TODO preserve original ACL even after macros have been applied
         
-        return (self.macros_applied == other.macros_applied and
-                self.macros == other.macros and
-                self.acl_in == other.acl_in and
-                self.acl_out == other.acl_out and
+        if not extensions:
+            if len(self.acl_in) != len(other.acl_in) or len(self.acl_out) != len(other.acl_out):
+                acls = False
+            else:
+                acls = all(map(lambda i: self.acl_in[i].__eq__(other.acl_in[i]), range(len(self.acl_in)))) and \
+                       all(map(lambda i: self.acl_out[i].__eq__(other.acl_out[i]), range(len(self.acl_out))))
+        else:
+            acls = self.acl_in == other.acl_in and self.acl_out == other.acl_out
+        
+        return ((not macros or self.macros_applied == other.macros_applied) and
+                (not macros or self.macros == other.macros) and
+                acls and
                 self.context == other.context)
 
     def __str__(self):
@@ -1045,8 +1062,8 @@ class Context(object):
                             self.interfaces = ifaces
                     except:
                         raise VLANDescriptionError(
-                            'Bad interface name in description of VLAN %s %s in %s, must be in ' +
-                            'python dictionary string notation' %
+                            ('Bad interface name in description of VLAN %s %s in %s, must be in ' +
+                             'python dictionary string notation') %
                             (self.routingdomain, self.vlanid, config.get("global", "transit_file")))
 
                 # If column starts with -, ignore
@@ -1066,13 +1083,13 @@ class Context(object):
                         self.ipv6_aliases['local'] += [IPv6Network(l[4])]
                     except AddressValueError:
                         raise VLANDescriptionError(
-                            'Bad IPv6 range description of VLAN %s %s in %s, must be in ' +
-                            '/-notation' %
+                            ('Bad IPv6 range description of VLAN %s %s in %s, must be in ' +
+                             '/-notation') %
                             (self.routingdomain, self.vlanid, config.get("global", "transit_file")))
 
         if not self.ip_versions:
-            raise VLANDoesNotExistError('The VLAN (%s/%s) could not be found in VLANs nor in ' +
-                                        'TNETs file.' % (self.routingdomain, self.vlanid))
+            raise VLANDoesNotExistError(('The VLAN (%s/%s) could not be found in VLANs nor in ' +
+                                         'TNETs file.') % (self.routingdomain, self.vlanid))
 
         if not self.ip_versions:
             log.info('VLAN (%s/%s) has no IPv4 and no IPv6 network address.' %
@@ -1106,12 +1123,12 @@ class Context(object):
                 if self.dialect is None:
                     self.dialect = self.routers[-1]['dialect']
                 elif self.routers[-1]['dialect'] != self.dialect:
-                    raise UnknownRouterError('Router section router_%s has different dialect ' +
-                                             'then other routers in routingdomain' % r)
+                    raise UnknownRouterError(('Router section router_%s has different dialect ' +
+                                              'then other routers in routingdomain') % r)
                 self.routers[-1]['name'] = r
             except ConfigParser.NoSectionError:
-                raise UnknownRouterError('Router section (router_%s) not found in ' +
-                                         'routers_file (%s).' % (r, routers_file))
+                raise UnknownRouterError(('Router section (router_%s) not found in ' +
+                                         'routers_file (%s).') % (r, routers_file))
 
         self.dialect_module = __import__('lib.dialects.' + self.dialect, fromlist='lib.dialects')
 
@@ -1269,13 +1286,13 @@ class Rule(Trackable):
 
         return r + ')'
     
-    def __eq__(self, other):
+    def __eq__(self, other, extensions=True):
         '''Returns True if action, filter and extensions are the same.
         
         Other parameters are not checked.'''
         return (self.action == other.action and
                 self.filter == other.filter and
-                self.extensions == other.extensions)
+                (not extensions or self.extensions == other.extensions))
 
 
 class Filter(Trackable):
