@@ -10,51 +10,57 @@ import lib.third_party.ipaddr as ipaddr
 
 class TestStringToPorts(unittest.TestCase):
     def test_single_port(self):
-        self.assertEqual(m.Ports.from_string("80").to_string(), "80")
+        self.assertEqual(m.Ports("80"), m.Ports([80]))
     
     def test_multiple_ports(self):
-        ports = m.Ports.from_string("80,443,8080")
-        self.assertItemsEqual(ports.to_string(), "80,443,8080")
+        ports = m.Ports("80,443,8080")
+        self.assertItemsEqual(ports, m.Ports([80,443,8080]))
     
     def test_port_range(self):
-        ports = m.string_to_ports("1-1024")
-        self.assertItemsEqual(ports, [('range', (1, 1024))])
+        ports = m.Ports("1-1024")
+        self.assertItemsEqual(ports, m.Ports([], [(1, 1024)]))
     
     def test_multiple_port_ranges(self):
-        ports = m.string_to_ports("1-1024,2000-2342")
-        self.assertItemsEqual(ports, [('range', (1, 1024)), ('range', (2000, 2342))])
+        ports = m.Ports("1-1024,2000-2342")
+        self.assertItemsEqual(ports, m.Ports([], [(1, 1024),(2000, 2342)]))
     
     def test_single_and_range_combination(self):
-        ports = m.string_to_ports("1-1024,8080")
-        self.assertItemsEqual(ports, [('eq', 8080), ('range', (1, 1024))])
+        ports = m.Ports("1-1024,8080")
+        self.assertItemsEqual(ports, m.Ports([8080], [(1, 1024)]))
     
     def test_sigle_port_contained_in_range(self):
-        ports = m.string_to_ports("1-1024,80")
-        self.assertItemsEqual(ports, [('range', (1, 1024))])
+        ports = m.Ports("1-1024,80")
+        self.assertItemsEqual(ports, m.Ports([], [(1, 1024)]))
     
     def test_multiple_ports_and_ranges(self):
-        ports = m.string_to_ports("1-1024,8080,4000-5000,2342")
-        self.assertItemsEqual(ports, 
-            [('eq', 8080), ('range', (1, 1024)), ('range', (4000,5000)), ('eq', 2342)])
+        ports = m.Ports("1-1024,8080,4000-5000,2342")
+        self.assertItemsEqual(ports, m.Ports([2342, 8080], [(1, 1024), (4000, 5000)]))
     
     def test_multiple_same_ports(self):
-        ports = m.string_to_ports("23,23")
-        self.assertItemsEqual(ports, [('eq', 23)])
+        ports = m.Ports("23,23")
+        self.assertItemsEqual(ports, m.Ports([23]))
     
     def test_complete_overlapping_ranges(self):
         # Complete overlap
-        ports = m.string_to_ports("1-1024,512-1000")
-        self.assertItemsEqual(ports, [('range', (1, 1024))])
+        ports = m.Ports("1-1024,512-1000")
+        self.assertItemsEqual(ports, m.Ports([], [(1, 1024)]))
     
     def test_partial_overlapping_ranges(self):
         # Partial overlap
-        ports = m.string_to_ports("1-1024,512-2342")
-        self.assertItemsEqual(ports, [('range', (1, 2342))])
+        ports = m.Ports("1-1024,512-2342")
+        self.assertItemsEqual(ports, m.Ports([], [(1, 2342)]))
     
     def test_meeting_ranges(self):
         # Meeting borders
-        ports = m.string_to_ports("1-1024,1024-2342")
-        self.assertItemsEqual(ports, [('range', (1, 2342))])
+        ports = m.Ports("1-1024,1024-2342")
+        self.assertItemsEqual(ports, m.Ports([], [(1, 2342)]))
+    
+    def test_to_string_and_back(self):
+        ports = m.Ports([1,23,42,18000],[(100,200),(1024,4096)])
+        # To string
+        self.assertItemsEqual(str(ports), "1,23,42,18000,100-200,1024-4096")
+        # and back
+        self.assertItemsEqual(m.Ports(str(ports)), ports)
 
 class TestStringToIPs(unittest.TestCase):
     def test_simple_ip_address(self):
@@ -99,13 +105,6 @@ class TestStringToIPs(unittest.TestCase):
         self.assertItemsEqual(ips, [ipaddr.IPv6Network("fe80::/64"),
                                     ipaddr.IPv6Network("248f::/16"),
                                     ipaddr.IPv6Network("2342:16::/10")])
-                                    
-    def test_asterix_notation(self):
-        # IPv4
-        ips = m.string_to_ips("172.17.0.*")
-        self.assertItemsEqual(ips, [ipaddr.IPv4Network("172.17.0.0/24")])
-        # IPv6
-        # Not supported
     
     def test_comma_notation(self):
         # IPv4
