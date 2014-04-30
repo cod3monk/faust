@@ -734,6 +734,8 @@ class ACL(Trackable):
             # save acl to reset it later
             orig = acl
             
+            acl = filter(lambda x: not ('established' in x.extensions),acl)
+            
             # check if a rule is never reached cause it is fully contained in an ealier rule
             for i in range(len(acl)):
                 # filter reduces list to the rules never reached
