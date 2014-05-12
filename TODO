@@ -4,7 +4,6 @@
    * Comment style
    * "exception chaining"
    * Naming conventions
-   * Line break/continuation style
    * is type -> isinstance
 
 - Spaltenbreite bei search optimieren
@@ -21,5 +20,15 @@
 - keywords und services aus code in config umziehen
 - API um ACLs (.pol files) zu parsen, generieren und bearbeiten
 - Tell user who currently holds the lock
+- abstract TNETs and VLANs
 
 - Unit Tests
+    * metacl.Ports          DONE
+    * metacl.string_to_ips  DONE
+    * metacl.Context
+    * metacl.ACL
+    * metacl.Rule
+    * metacl.Filter
+    * metacl.MacroCall
+    * macros.Macro
+    * dialects.*

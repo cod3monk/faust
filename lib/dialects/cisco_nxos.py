@@ -32,6 +32,7 @@ from lib.third_party.ipaddr import IPv4Network, IPv6Network, AddressValueError
 from lib.third_party.ipaddr import NetmaskValueError
 from lib.third_party import pxssh, pxscp, memorization, lockfile
 
+import lib.config
 from lib import ipaddr_ng
 from lib.ipaddr_ng import IPv4Descriptor
 from lib import metacl

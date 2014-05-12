@@ -3,10 +3,17 @@
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.realpath(__file__))+'/../')
-
 import unittest
+
 import lib.metacl as m
 import lib.third_party.ipaddr as ipaddr
+import lib.config as config
+
+def setUpModule():
+    config.load('tests/environment/config.ini')
+
+def tearDownModule():
+    config.unload()
 
 class TestStringToPorts(unittest.TestCase):
     def test_single_port(self):
@@ -126,6 +133,10 @@ class TestStringToIPs(unittest.TestCase):
         ips = m.string_to_ips("::/0;fe80::/64;248f::/16;2342:16::/10;" + \
             "fe80:2342:abcd:ff12:1016:8f7f:fe80:c9a")
         self.assertItemsEqual(ips, [ipaddr.IPv6Network("::/0")])
+
+class TestContext(unittest.TestCase):
+    def test_init(self):
+        m.Context('POLES', '23')
 
 if __name__ == '__main__':
     unittest.main()

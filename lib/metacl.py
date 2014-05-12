@@ -66,7 +66,7 @@ from ipaddr_ng import IPv4Descriptor, IPv6Descriptor, IPDescriptor
 from helpers import Trackable
 import macros
 import logging
-from __init__ import config
+import config
 
 log = logging.getLogger('lib.metacl')
 
@@ -124,12 +124,12 @@ class ProtocolDoesNotSupportPortsError(Error, Trackable):
 
 class Ports:
     '''Ports list and range handeling in one object'''
-    def __init__(self, arg=None):
+    def __init__(self, *args):
         '''Forms a combination of individual ports and ranges.
 
-        If *args* is instance of tuple, the first element must be a list of port
+        If *args* are two lists the first element must be a list of port
         integers and the second a list of port range tupels:
-        >>> Ports( ([23,42], [(1,5), (100,200)]) ).__str__()
+        >>> Ports( [23,42], [(1,5), (100,200)] ).__str__()
         "23,42,1-5,100-200"
 
         If *args* is instance of list, it must be a list of port integers:
@@ -145,21 +145,21 @@ class Ports:
         >>> Ports()
         Ports([])
         '''
-        if isinstance(arg, tuple):
-            assert isinstance(arg[0], list) and isinstance(arg[1], list), \
-                "The tuple must contain two lists."
-            self.singles = arg[0]
-            self.ranges = arg[1]
-        elif isinstance(arg, list):
-            self.singles = arg
+        if len(args) == 2:
+            assert isinstance(args[0], list) and isinstance(args[1], list), \
+                "in case of 2 arguments, only lists are valid."
+            self.singles = args[0]
+            self.ranges = args[1]
+        elif len(args) == 1 and isinstance(args[0], list):
+            self.singles = args[0]
             self.ranges = []
-        elif isinstance(arg, (str, unicode)):
+        elif len(args) == 1 and isinstance(args[0], (str, unicode)):
             # Empty initialization
             self.singles = []
             self.ranges = []
 
             # First we build a set with all matching port numbers:
-            s = arg.split(',')
+            s = args[0].split(',')
 
             for ports_str in s:
                 if '-' in ports_str:
@@ -167,9 +167,11 @@ class Ports:
                     self.add_range(int(range_str[0]), int(range_str[1]))
                 else:
                     self.add_port(int(ports_str))
-        else:
+        elif len(args) == 0:
             self.singles = []
             self.ranges = []
+        else:
+            raise TypeError("To many arguments or of wrong type.")
 
     def add_port(self, port):
         '''Adds single port. Duplicates are ignored'''
@@ -886,8 +888,10 @@ class ACL(Trackable):
             if len(self.acl_in) != len(other.acl_in) or len(self.acl_out) != len(other.acl_out):
                 acls = False
             else:
-                acls = all(map(lambda i: self.acl_in[i].__eq__(other.acl_in[i]), range(len(self.acl_in)))) and \
-                       all(map(lambda i: self.acl_out[i].__eq__(other.acl_out[i]), range(len(self.acl_out))))
+                acls = all(map(lambda i: self.acl_in[i].__eq__(other.acl_in[i]),
+                               range(len(self.acl_in)))) and \
+                       all(map(lambda i: self.acl_out[i].__eq__(other.acl_out[i]),
+                               range(len(self.acl_out))))
         else:
             acls = self.acl_in == other.acl_in and self.acl_out == other.acl_out
         
@@ -1136,7 +1140,7 @@ class Context(object):
             except ConfigParser.NoSectionError:
                 raise UnknownRouterError(('Router section (router_%s) not found in ' +
                                          'routers_file (%s).') % (r, routers_file))
-
+        
         self.dialect_module = __import__('lib.dialects.' + self.dialect, fromlist='lib.dialects')
 
         self.user = c.get('access', 'user')

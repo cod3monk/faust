@@ -62,6 +62,9 @@ import re
 import ConfigParser
 import getpass
 
+# so every module can see lib
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 from lib.third_party import ipaddr
 from lib.third_party import texttable
 from lib.third_party import docopt
@@ -76,9 +79,6 @@ except lib.config.ConfigError, err:
     print >> sys.stderr, "Problem with the configuration: %s" % err
     sys.exit(2)
 log = logging.getLogger('faust')
-
-# so every module can see lib
-sys.path.append(os.path.abspath(__file__))
 
 
 def compare_acls(routingdomain, vlanid, output=sys.stdout):

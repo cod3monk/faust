@@ -31,7 +31,7 @@ from lib.third_party.ipaddr import IPv4Network, IPv6Network, AddressValueError
 from lib.third_party.ipaddr import NetmaskValueError
 from lib.third_party import pxssh, pxscp, memorization, lockfile
 
-import lib
+import lib.config
 import generic
 from lib import ipaddr_ng
 from lib.ipaddr_ng import IPv4Descriptor
