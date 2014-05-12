@@ -135,8 +135,74 @@ class TestStringToIPs(unittest.TestCase):
         self.assertItemsEqual(ips, [ipaddr.IPv6Network("::/0")])
 
 class TestContext(unittest.TestCase):
-    def test_init(self):
-        m.Context('POLES', '23')
+    def setUp(self):
+        self.ctxt = m.Context('POLES', '42')
+        self.ctxt2 = m.Context('POLES', '105')
+    
+    def test_alias_local(self):
+        # Check for import from VLANs
+        self.assertItemsEqual(self.ctxt.get_alias('local'),
+                              [ipaddr.IPv4Network("42.42.42.0/24"),
+                               ipaddr.IPv6Network('2001:638:a000:42::/64')])
+        self.assertItemsEqual(self.ctxt.get_alias('local', 'ipv4'),
+                              [ipaddr.IPv4Network("42.42.42.0/24")])
+        self.assertItemsEqual(self.ctxt.get_alias('local', 'ipv6'),
+                              [ipaddr.IPv6Network('2001:638:a000:42::/64')])
+        
+        # Also check if TNETs gets imported
+        self.assertItemsEqual(self.ctxt2.get_alias('local'),
+                              [ipaddr.IPv4Network("10.0.5.0/24"),
+                               ipaddr.IPv4Network('42.42.100.0/30')])
+    
+    def test_alias_any(self):
+        self.assertItemsEqual(self.ctxt.get_alias('any'),
+                              [ipaddr.IPv4Network("0.0.0.0/0"),
+                               ipaddr.IPv6Network('::1/0')])
+    
+    def test_alias_from_hosts(self):
+        # Straight from hosts.ini
+        self.assertItemsEqual(self.ctxt.get_alias('rfc1918'),
+                              [ipaddr.IPv4Network("10.0.0.0/8"),
+                               ipaddr.IPv4Network("172.16.0.0/12"),
+                               ipaddr.IPv4Network("192.168.0.0/16")])
+        
+        # From imported file:
+        self.assertItemsEqual(self.ctxt.get_alias('testing'),
+                              [ipaddr.IPv4Network("1.2.3.4/32"),
+                               ipaddr.IPv6Network("::23/128")])
+    
+    def test_alias_set_and_get(self):
+        # IPv4
+        self.ctxt2.set_alias('fooo', '131.188.10.0/24')
+        self.ctxt2.set_alias('fooo', '131.188.11.0/24')
+        self.assertItemsEqual(self.ctxt2.get_alias('fooo'),
+                              [ipaddr.IPv4Network("131.188.10.0/24"),
+                               ipaddr.IPv4Network("131.188.11.0/24")])
+        
+        # IPv6
+        self.ctxt2.set_alias('fooo', 'fe80::/64')
+        self.ctxt2.set_alias('fooo', 'fe81::1/128')
+        self.assertItemsEqual(self.ctxt2.get_alias('fooo', 'ipv6'),
+                              [ipaddr.IPv6Network("fe80::/64"),
+                               ipaddr.IPv6Network("fe81::1/128")])
+    
+    def test_policy_path(self):
+        self.assertEqual(self.ctxt.get_policy_path(), 'policies/POLES/42.pol')
+    
+    def test_policy_dir(self):
+        self.assertEqual(self.ctxt.get_policy_dir(), 'policies/POLES/')
+
+    def test_get_acl(self):
+        self.assertEqual(self.ctxt.get_acl(), m.ACL.from_file('policies/POLES/42.pol',
+                         context=self.ctxt))
+    
+    def test_equal(self):
+        self.assertNotEqual(self.ctxt, self.ctxt2)
+        self.assertEqual(self.ctxt, m.Context('POLES', '42'))
+
+
+class TestACL(unittest.TestCase):
+    pass
 
 if __name__ == '__main__':
     unittest.main()

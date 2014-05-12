@@ -931,10 +931,11 @@ class Context(object):
                                      hosts_config.items('ipv6')))
 
         # Including external alias descriptions
+        basepath = os.path.abspath(os.path.dirname(config.get("global", "aliases_file")))
         for k, v in hosts_config.items('include'):
             if not v:
                 continue
-            for l in open(v).readlines():
+            for l in open(basepath+'/'+v).readlines():
                 if not l.startswith('#') and not l.startswith(';') and len(l) > 0:
                     self.set_alias(k, l.strip())
 
