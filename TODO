@@ -25,8 +25,8 @@
 - Unit Tests
     * metacl.Ports          DONE
     * metacl.string_to_ips  DONE
-    * metacl.Context
-    * metacl.ACL
+    * metacl.Context        DONE
+    * metacl.ACL            WIP
     * metacl.Rule
     * metacl.Filter
     * metacl.MacroCall

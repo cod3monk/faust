@@ -204,5 +204,48 @@ class TestContext(unittest.TestCase):
 class TestACL(unittest.TestCase):
     pass
 
+
+class TestRule(unittest.TestCase):
+    def test_parser(self):
+        self.assertEqual(
+            m.Rule('permit',
+                   m.Filter(
+                       ['ip'],
+                       [ipaddr.IPv4Network('127.0.0.0/8')],
+                       [ipaddr.IPv4Network('255.255.255.255/32')])),
+            m.Rule.from_string('permit ip 127.0.0.0/8 255.255.255.255'))
+        
+        self.assertEqual(
+            m.Rule('deny',
+                   m.Filter(
+                       ['tcp'],
+                       sources=[ipaddr.IPv4Network('127.0.0.0/8')],
+                       destinations=[ipaddr.IPv4Network('255.255.255.255/32')],
+                       sports=m.Ports("80"),
+                       dports=m.Ports("23")),
+                   extensions=['established']),
+            m.Rule.from_string('deny tcp 127.0.0.0/8 80 255.255.255.255 23 established'))
+
+    def test_overlaps(self):
+        # TODO
+        pass
+    
+    def test_contains(self):
+        # TODO
+        pass
+    
+    def test_to_str(self):
+        r = 'deny tcp 127.0.0.0/8 80 255.255.255.255/32 23 established'
+        self.assertEqual(r, str(m.Rule.from_string(r)))
+
+
+class TestFilter(unittest.TestCase):
+    pass
+
+
+class TestMacroCall(unittest.TestCase):
+    pass
+
+
 if __name__ == '__main__':
     unittest.main()
