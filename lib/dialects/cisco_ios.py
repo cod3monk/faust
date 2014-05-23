@@ -39,7 +39,6 @@ from lib import metacl
 
 log = logging.getLogger(__name__)
 
-
 class Error(generic.Error):
     """Base class for exceptions in this module."""
     pass
@@ -805,32 +804,30 @@ class Router(generic.Router):
             error = True
 
             self._client.sendline(command)
-            i = self._client.expect([re.escape('Destination filename ['+to+']? '), pxssh.TIMEOUT,
-                                    self._client.PROMPT], timeout=300)
-            if i == 2:  # Prompt, Error!
-                error = True
+            i = self._client.expect([re.escape('Destination filename ['+to+']? '),
+                                     pxssh.TIMEOUT, self._client.PROMPT], timeout=300)
+
+            out = self._client.before
+            out = out.split('\r\n')[:-1]
 
             if i == 0:  # Destination filename [...]?
                 # Send return
                 self._client.sendline('')
-                i = self._client.expect([self._client.PROMPT, pxssh.TIMEOUT], timeout=300)
-                if i == 0:  # Prompt, good
+                i = self._client.expect(['%Error', self._client.PROMPT, pxssh.TIMEOUT], timeout=300)
+                if i == 1:  # Prompt, good
                     error = False
 
-            if i == 1:  # Timeout
+            if i == 2:  # Timeout
                 raise ErrorTimeout("Execution of command and input '%s\n%s' timeouted after 5 " +
                                    "minutes." % (command, input))
 
             if error:
                 raise Error('Copy from "'+from_+'" to "'+to+'" could not be completed.')
 
-            out = self._client.before
-            out = out.split('\r\n')[:-1]
-
             # all([]) -> True, so we need to exclude len(...) -> 0 from raising an
             # AssertionError
-            if len(out) > 0 and error:
-                error_lines = filter(lambda x: x.strip().startswith('% ') and
+            if error:
+                error_lines = filter(lambda x: x.strip().startswith('%') and
                                      x.strip()[2:] not in ignore, out)
                 if error_lines:
                     log.error('Errors from %s: %s' % (self.name, error_lines))

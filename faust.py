@@ -80,7 +80,6 @@ except lib.config.ConfigError, err:
     sys.exit(2)
 log = logging.getLogger('faust')
 
-
 def compare_acls(routingdomain, vlanid, output=sys.stdout):
     '''Compares local ACLs with active ACLs found on router.
     
