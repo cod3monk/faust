@@ -517,7 +517,20 @@ def main(arguments):
             elif type(ip) is ipaddr.IPv6Address:
                 if n[4] and ip in n[4]:
                     found.append(n)
+        
+        if len(found) == 0:
+            try:
+                default = tuple(lib.config.get('global', 'default_block_vlan').split(' '))
+            except:
+                default = None
 
+            if not default:
+                log.error('No VLAN found for given IP. Aborting. Set default_block_vlan in ' +
+                          'config to enable a default block VLAN.')
+                sys.exit(2)
+
+            log.warning('No VLAN found for given IP. Making use of default VLAN: %s.' % (default,))
+            found = [default]
         if len(found) > 0:
             if len(found) > 1:
                 log.warning('Multiple VLANs (%s) found for given IP (%s). Continuing...' %
@@ -526,6 +539,7 @@ def main(arguments):
                 rd, vlanid = n[0], n[1]
                 log.info('Unblocking IP in VLAN %s on %s...' % (vlanid, rd))
                 c = metacl.Context(rd, vlanid)
+                error = True
 
                 # RCS checkout
                 if lib.config.get('global', 'use_rcs') == 'true':
@@ -545,8 +559,9 @@ def main(arguments):
                     f.write(new)
                     f.close()
                 else:
-                    log.warning('Could not identify block-line in %s. Only exact matches can be ' +
-                                'found, please check manualy.' % c.get_policy_path())
+                    log.error(('Could not identify block-line in %s. Only exact matches can be ' +
+                               'found, please check manualy.') % c.get_policy_path())
+                    error = True
 
                 # RCS checkin
                 if lib.config.get('global', 'use_rcs') == 'true':
@@ -556,8 +571,9 @@ def main(arguments):
                         log.error('RCS checkin of '+c.get_policy_path()+' failed.')
                         sys.exit(2)
 
-                metacl.ACL.from_context(c).install()
-                log.info("Sucessfully unblocked %s" % ip)
+                if not error:
+                    metacl.ACL.from_context(c).install()
+                    log.info("Sucessfully unblocked %s" % ip)
         else:
             log.error('No VLAN found for given IP. Aborting.')
             sys.exit(2)
