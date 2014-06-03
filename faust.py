@@ -539,7 +539,7 @@ def main(arguments):
                 rd, vlanid = n[0], n[1]
                 log.info('Unblocking IP in VLAN %s on %s...' % (vlanid, rd))
                 c = metacl.Context(rd, vlanid)
-                error = True
+                error = False
 
                 # RCS checkout
                 if lib.config.get('global', 'use_rcs') == 'true':
