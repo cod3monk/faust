@@ -27,8 +27,8 @@
     * metacl.string_to_ips  DONE
     * metacl.Context        DONE
     * metacl.ACL            WIP
-    * metacl.Rule
-    * metacl.Filter
+    * metacl.Rule           DONE
+    * metacl.Filter         DONE
     * metacl.MacroCall
     * macros.Macro
     * dialects.*

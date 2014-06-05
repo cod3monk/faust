@@ -4,6 +4,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.realpath(__file__))+'/../')
 import unittest
+from textwrap import dedent
 
 import lib.metacl as m
 import lib.third_party.ipaddr as ipaddr
@@ -202,8 +203,41 @@ class TestContext(unittest.TestCase):
 
 
 class TestACL(unittest.TestCase):
-    pass
+    def test_parse(self):
+        acl = m.ACL.from_string(dedent('''
+        lan()
+        domain()
+        broadcast()
+        antiSpoof()
+        update()
 
+        IN:
+        permit ip 23.0.0.0/8 0.0.0.0/0
+        deny ip 0.0.0.0/0 0.0.0.0/0
+
+        OUT:
+        permit ip 0.0.0.0/0 23.0.0.0/8
+        deny ip 0.0.0.0/0 0.0.0.0/0
+        '''))
+        
+        self.assertEqual(
+            acl.get_rules('in'),
+            [m.Rule('permit', m.Filter(['ip'], [ipaddr.IPv4Network('23.0.0.0/8')],
+                                       [ipaddr.IPv4Network('0.0.0.0/0')])),
+             m.Rule('deny', m.Filter(['ip'], [ipaddr.IPv4Network('0.0.0.0/0')],
+                                     [ipaddr.IPv4Network('0.0.0.0/0')]))])
+        self.assertEqual(
+            acl.get_rules('out'),
+            [m.Rule('permit', m.Filter(['ip'], [ipaddr.IPv4Network('0.0.0.0/0')],
+                                       [ipaddr.IPv4Network('23.0.0.0/8')])),
+             m.Rule('deny', m.Filter(['ip'], [ipaddr.IPv4Network('0.0.0.0/0')],
+                                     [ipaddr.IPv4Network('0.0.0.0/0')]))])
+        
+        self.assertEqual(acl.macros,
+                         [m.MacroCall('lan'), m.MacroCall('domain'), m.MacroCall('broadcast'), 
+                          m.MacroCall('antiSpoof'), m.MacroCall('update')])
+    
+    # TODO test many more features!
 
 class TestRule(unittest.TestCase):
     def test_parser(self):
@@ -226,21 +260,26 @@ class TestRule(unittest.TestCase):
                    extensions=['established']),
             m.Rule.from_string('deny tcp 127.0.0.0/8 80 255.255.255.255 23 established'))
 
-    def test_overlaps(self):
-        # TODO
-        pass
-    
-    def test_contains(self):
-        # TODO
-        pass
-    
     def test_to_str(self):
         r = 'deny tcp 127.0.0.0/8 80 255.255.255.255/32 23 established'
         self.assertEqual(r, str(m.Rule.from_string(r)))
 
 
 class TestFilter(unittest.TestCase):
-    pass
+    def test_parser(self):
+        self.assertEqual(
+            m.Filter(['tcp', 'udp'], [ipaddr.IPv4Network('127.0.0.0/8')],
+                     [ipaddr.IPv4Network('255.255.255.255/32')],
+                     sports=m.Ports("80"), dports=m.Ports("23")),
+            m.Filter.from_string('tcp,udp 127.0.0.0/8 80 255.255.255.255 23'))
+    
+    def test_wrong_protocol(self):
+        self.assertRaises(m.ProtocolDoesNotSupportPortsError, m.Filter.from_string,
+                          'ip 1.1.1.1 23 2.3.4.5 42')
+        self.assertRaises(m.ProtocolDoesNotSupportPortsError, m.Filter.from_string,
+                          'ip 1.1.1.1 2.3.4.5 42')
+        self.assertRaises(m.ProtocolDoesNotSupportPortsError, m.Filter.from_string,
+                          'ip 1.1.1.1 23 2.3.4.5')
 
 
 class TestMacroCall(unittest.TestCase):
