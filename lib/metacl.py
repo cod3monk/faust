@@ -60,6 +60,7 @@ import difflib
 import ConfigParser
 
 from third_party.ipaddr import IPv4Network, IPv6Network, AddressValueError, NetmaskValueError
+from third_party import HTML
 
 import ipaddr_ng
 from ipaddr_ng import IPv4Descriptor, IPv6Descriptor, IPDescriptor
@@ -541,10 +542,12 @@ class ACL(Trackable):
                                                  timestamp)
 
         cfile = None
+        hfile = None
         if save_to_file:
             # Saving compiled ACLs to cfile in cdir
             cdir = '%s/%s' % (config.get('global', 'compiled_dir'), context.routingdomain)
             cfile = '%s/%s.acl' % (cdir, context.vlanid)
+            hfile = '%s/%s.html' % (cdir, context.vlanid)
 
             try:
                 try:
@@ -584,6 +587,24 @@ class ACL(Trackable):
 
                 f.writelines(acl)
                 f.close()
+                
+                # Check if html file allready exists
+                if os.path.isfile(hfile):
+                    # Delete if file exists
+                    os.remove(hfile)
+                    
+                # Create html file
+                h = open(hfile, 'w')
+                
+                # Correcting rights and group ownership for html file, if configured
+                if umask:
+                    os.chmod(hfile, umask)
+                if gid:
+                    os.chown(hfile, -1, gid)
+                
+                #write data to html file
+                self.writeHTML(h)
+                h.close()   
 
                 log.debug('Compiled %s to %s' % (context.vlanid, cfile))
             except Exception, err:
@@ -905,6 +926,76 @@ class ACL(Trackable):
     def __str__(self):
         return 'ACL:\n MACROS:\n%s\n ACL IN:\n%s\n ACL OUT:\n%s' % \
             (pformat(self.macros, 3), pformat(self.acl_in, 3), pformat(self.acl_out, 3))
+            
+    def writeHTML(self,file):
+        t = HTML.Table(header_row=['line','sources','destination','action','macro'])
+        for dir in ['in','out']:
+            for f in self.get_rules(dir):
+                source = f.filter.sources
+                destination = f.filter.destinations
+                hosts = False
+                hostd = False
+                sourceh = ''
+                destinationh = ''
+                sourceString = ''
+                for s in f.filter.sources:
+                    #prefilxlen check to avoid /32
+                    if s.prefixlen == 32 and s.version == 4:
+                        sourceString += str(s.network) + '<br>'
+                    else:
+                        sourceString += str(s) + '<br>'
+
+                destinationString = ''
+                for d in f.filter.destinations:
+                    if s.prefixlen == 32:
+                        destinationString += str(d.network) + '<br>'
+                    else:
+                        destinationString += str(d) + '<br>'
+
+                for host,ip in self.context.ipv6_aliases.iteritems():
+
+                    if source == ip:
+                        sourceString = '<b>' + host + "</b>: " + '<br>' + sourceString
+
+                    if destination == ip:
+                        destinationString = '<b>' + host + "</b>: " + '<br>' + destinationString
+
+                for host,ip in self.context.ipv4_aliases.iteritems():
+
+                    if source == ip:
+                        sourceString = '<b>' + host + "</b>: " + '<br>' + sourceString
+
+                    if destination == ip:
+                        destinationString = '<b>' + host + "</b>: " + '<br>' + destinationString
+
+                #remove ipv4 + ipv6 any:
+                if source == [IPv4Network('0.0.0.0/0'),IPv6Network('::1/0')]:
+                    sourceString = '<b>any:</b>' + '<br>' + sourceString
+            
+                if destination == [IPv4Network('0.0.0.0/0'),IPv6Network('::1/0')]:
+                    destinationString= '<b>any:</b>' + '<br>' + destinationString
+
+                if (f.action == 'deny'):
+                    action = HTML.TableCell(f.action, bgcolor='Red')
+                else:
+                    action = HTML.TableCell(f.action, bgcolor='Green')
+
+                macro = ''
+                if f.parent:
+                    macro = type(f.parent).__name__
+
+                t.rows.append([f.filter.lineno,sourceString,destinationString,action,macro])
+            if dir is 'in':
+                htmlcodeIn = str(t)
+            else:
+                htmlcodeOut = str(t)
+
+        file.write("<!DOCTYPE html>")
+        file.write("<h1>" + self.filename[9:] + "</h1>")
+        file.write("<h2>" + "Verbindungen vom Router in das Netz:" + "</h2>")
+        file.write(htmlcodeOut)
+        file.write("<h2>" + "Verbindungen aus dem Netz zum Router:" + "</h2>")
+        file.write(htmlcodeIn)
 
 
 class Context(object):

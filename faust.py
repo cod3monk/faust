@@ -27,7 +27,7 @@ Usage:
   faust.py search <ip>
   faust.py rules <ip>
   faust.py create <routingdomain> <vlan_id>
-  faust.py trace <src_ip> <dst_ip> [<port>] [<protocol>] [-r]
+  faust.py trace <src_ip> <dst_ip> [--port=<port>] [--protocol=<protocol>] [-r]
   faust.py -h | --help
   faust.py --version
 
@@ -35,7 +35,9 @@ Options:
   -h --help     Show this screen.
   --version     Show version.
   -q --quiet    Quiet mode. Only errors are reported.
-  -r --reverse  Reverses direction of src_ip and dst_ip
+  -r            Reverses direction of src_ip and dst_ip
+  --port        Trace for a specific port only
+  --protocol    Trace for a specific prtocol only
 
 Commands:
     compile     Only compiles, no interation with router(s).
@@ -718,14 +720,14 @@ def main(arguments):
             dst_ip = ipaddr.IPAddress(arguments['<dst_ip>'])
             if arguments['--reverse']:
                 src_ip, dst_ip = dst_ip, src_ip
-            if arguments['<protocol>'] is not None:
-                if arguments['<protocol>'] in lib.metacl.protocol_names:
-                    protocol = arguments['<protocol>']
+            if arguments['--protocol'] is not None:
+                if arguments['--protocol'] in lib.metacl.PROTOCOL_NAMES:
+                    protocol = arguments['--protocol']
                 else:
-                    log.error("Given protocol not supported: " + arguments['<protocol>'])
+                    log.error("Given protocol not supported: " + arguments['--protocol'])
                     sys.exit(2)
-            if arguments['<port>'] is not None:
-                port = int(arguments['<port>'])
+            if arguments['--port'] is not None:
+                port = int(arguments['--port'])
         except Exception, err:
             log.error(str(err))
             sys.exit(2)
@@ -765,10 +767,10 @@ def main(arguments):
             #filter rules to match only when destination is dst_ip
             rules = filter(lambda x: any(map(lambda y: dst_ip in y, x.filter.destinations)), rules)
             rules = filter(lambda x: any(map(lambda y: src_ip in y, x.filter.sources)), rules)
-            if arguments['<protocol>'] is not None:
+            if arguments['--protocol'] is not None:
                 rules = filter(lambda x: any(map(lambda y: y == protocol, x.filter.protocols)),
                                rules)
-            if arguments['<port>'] is not None:
+            if arguments['--port'] is not None:
                 rules = filter(lambda x: (port in x.filter.sports) or (port in x.filter.dports),
                                rules)
 
@@ -798,10 +800,10 @@ def main(arguments):
             rules = filter(lambda x: any(map(lambda y: src_ip in y, x.filter.sources)), rules)
             rules = filter(lambda x: any(map(lambda y: dst_ip in y, x.filter.destinations)),
                            rules)
-            if arguments['<protocol>'] is not None:
+            if arguments['--protocol'] is not None:
                 rules = filter(lambda x: any(map(lambda y: y == protocol, x.filter.protocols)),
                                rules)
-            if arguments['<port>'] is not Port:
+            if arguments['--port'] is not None:
                 rules = filter(lambda x: (port in x.filter.sports) or (port in x.filter.dports),
                                rules)
 
