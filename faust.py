@@ -36,8 +36,6 @@ Options:
   --version     Show version.
   -q --quiet    Quiet mode. Only errors are reported.
   -r            Reverses direction of src_ip and dst_ip
-  --port        Trace for a specific port only
-  --protocol    Trace for a specific prtocol only
 
 Commands:
     compile     Only compiles, no interation with router(s).
