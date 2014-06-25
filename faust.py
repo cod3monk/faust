@@ -587,7 +587,7 @@ def main(arguments):
             try:
                 l = os.listdir(lib.config.get('global', 'policies_dir')+'/'+routingdomain)
             except OSError as e:
-                log.error("Could not read policy directory for routing domain '%s': %e" %
+                log.error("Could not read policy directory for routing domain '%s': %s" %
                           (routingdomain, str(e)))
                 sys.exit(2)
             ext = lib.config.get('global', 'policies_ext')
