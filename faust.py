@@ -238,15 +238,12 @@ def main(arguments):
                     conflicts = acl.sanity_check()
                     if conflicts:
                         log.info("sanity_check found %s Conflicts in %s" % (len(conflicts), vlanid))
-                        log.info("(y) to show or any other key to skip and continue compiling")
+                        choose_conflicts(conflicts)
+                        log.info("press (y) to continue compiling or other key to abort")
                         choice = sys.stdin.readline()
-                        if choice == "y\n":
-                            choose_conflicts(conflicts)
-                            log.info("press (y) to continue compiling or other key to abort")
-                            choice = sys.stdin.readline()
-                            if choice != "y\n":
-                                fail_count.append(vlanid)
-                                continue
+                        if choice != "y\n":
+                            fail_count.append(vlanid)
+                            continue
                 cfile, acl, ipv6 = acl.compile()
             except (metacl.Error, macros.Error, dialects.generic.Error), err:
                 if isinstance(err, helpers.Trackable):
@@ -295,15 +292,12 @@ def main(arguments):
                     conflicts = acl.sanity_check()
                     if conflicts:
                         log.info("sanity_check found %s Conflicts in %s" % (len(conflicts), vlanid))
-                        log.info("(y) to show any other key to skip and continue compiling")
+                        choose_conflicts(conflicts)
+                        log.info("press (y) to continue compiling or other key to abort")
                         choice = sys.stdin.readline()
-                        if choice == "y\n":
-                            choose_conflicts(conflicts)
-                            log.info("press (y) to continue compiling or other key to abort")
-                            choice = sys.stdin.readline()
-                            if choice != "y\n":
-                                fail_count.append(vlanid)
-                                continue
+                        if choice != "y\n":
+                            fail_count.append(vlanid)
+                            continue
                 cfile, acl_string, ipv6 = acl.compile()
             except (metacl.Error, macros.Error, dialects.generic.Error), err:
                 if isinstance(err, helpers.Trackable):
@@ -704,10 +698,7 @@ def main(arguments):
 
         if conflicts != []:
             log.info("%s Conflicts found:" % len(conflicts))
-            log.info("Show conflicts? (y)")
-            choice = sys.stdin.readline()
-            if choice == "y\n":
-                choose_conflicts(conflicts)
+            choose_conflicts(conflicts)
 
         else:
             log.info("No Conflicts found!")
