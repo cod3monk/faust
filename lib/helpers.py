@@ -25,7 +25,9 @@ from ipaddr_ng import IPDescriptor
 
 
 class Trackable(object):
+
     '''Tracks origin of objects by filename and linenumber'''
+
     def __init__(self, filename=None, lineno=None, parent=None, sourceline=None):
         self.filename = filename
         self.lineno = lineno
@@ -47,7 +49,7 @@ class Trackable(object):
         try:
             with open(self.filename) as f:
                 data = f.readlines()
-                return data[self.lineno-1]
+                return data[self.lineno - 1]
         except IndexError:
             return "<Could not read line>\n"
         except IOError:
@@ -91,7 +93,7 @@ def set_file_rights(path):
         umask = int(config.get('global', 'compiled_umask'))
         if os.path.isdir(path):
             import stat
-            umask += stat.S_IXUSR+stat.S_IXGRP+stat.S_IXOTH
+            umask += stat.S_IXUSR + stat.S_IXGRP + stat.S_IXOTH
     except:
         umask = None
     try:

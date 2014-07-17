@@ -26,21 +26,25 @@ from ipaddr_ng import IPv4Descriptor, any_
 
 
 class Error(Exception):
+
     """Base class for exceptions in this module."""
     pass
 
 
 class UnresolvableDependencies(Error):
+
     '''Dependencies couldn't be resolved.'''
     pass
 
 
 class InvalidMacroArguments(Error):
+
     '''The macro arguments are malformed or otherwise invalid.'''
     pass
 
 
 class Macro(Trackable):
+
     '''Baseclass for macros'''
 
     # List of macros that need to be executed first
@@ -59,7 +63,9 @@ class Macro(Trackable):
 
 
 class update(Macro):
+
     '''Allows all IP packets from and to 131.188.12.16/28 and .3.202'''
+
     def call(self, macl):
         macl.acl_in.insert(0, metacl.Rule.from_string(
             'permit tcp local 131.188.3.202 80',
@@ -77,6 +83,7 @@ class update(Macro):
 
 
 class nms(Macro):
+
     def call(self, macl):
         macl.acl_in.insert(0, metacl.Rule.from_string(
             'permit udp local 131.188.4.0/24 1023-65535',
@@ -136,7 +143,9 @@ class nms(Macro):
 
 
 class antiSpoof(Macro):
+
     '''Denies packets from "the outside" with local IPs and vice versa.'''
+
     def call(self, macl):
         local = macl.context.get_alias('local')
 
@@ -148,6 +157,7 @@ class antiSpoof(Macro):
 
 
 class broadcast(Macro):
+
     '''Denies IPv4 broadcast packets to pass through the router.'''
 
     def call(self, macl):
@@ -171,6 +181,7 @@ class broadcast(Macro):
 
 
 class lan(Macro):
+
     def call(self, macl):
         if 'ipv6' in macl.context.ip_versions:
             local6 = macl.context.get_alias('local', ip_versions='ipv6')[0]
@@ -197,7 +208,7 @@ class lan(Macro):
             local = macl.context.get_alias('local', ip_versions='ipv4')[0]
             first = [ipaddr.IPNetwork(local[1])]
             last = [ipaddr.IPNetwork(local[-3]), ipaddr.IPNetwork(local[-2])]
-            temp_aliases = {'first': first, 'last': last, 'firstlast': first+last}
+            temp_aliases = {'first': first, 'last': last, 'firstlast': first + last}
 
             # Rules to be inserted at top of IN list:
             rules_in = [
@@ -238,6 +249,7 @@ class lan(Macro):
 
 
 class dhcp6(Macro):
+
     def call(self, macl):
         local6 = macl.context.get_alias('local', ip_versions='ipv6')[0]
         first = [ipaddr.IPNetwork(local6[1]), ipaddr.IPNetwork(local6[2])]
@@ -249,6 +261,7 @@ class dhcp6(Macro):
 
 
 class dhcp(Macro):
+
     '''Allows DHCP broadcasts to DHCP servers:
     arguments can be 'linux', 'solaris', 'rrze' or an ip address of a dhcp server
     Can also be a space seperated list, to allow more then one class/ip, or empty.
@@ -268,7 +281,7 @@ class dhcp(Macro):
         local = macl.context.get_alias('local', ip_versions='ipv4')[0]
         first = [ipaddr.IPNetwork(local[1])]
         last = [ipaddr.IPNetwork(local[-3]), ipaddr.IPNetwork(local[-2])]
-        routers = first+last
+        routers = first + last
 
         if len(self.args) > 0:
             dhcp_servers = [self.dhcp_classes[i] for i in self.args if i in self.dhcp_classes]
@@ -303,20 +316,20 @@ class dhcp(Macro):
         macl.acl_in = acl_in + macl.acl_in
 
         acl_out = []
-        #out 'permit udpROUTERS 67 255.255.255.255 68',
+        # out 'permit udpROUTERS 67 255.255.255.255 68',
         acl_out.append(metacl.Rule.from_string(
             'permit udp $routers 67 255.255.255.255 68',
             temp_aliases=temp_aliases, context=macl.context, parent=self))
-        #out 'permit udpROUTERS eq 67 local 68',
+        # out 'permit udpROUTERS eq 67 local 68',
         acl_out.append(metacl.Rule.from_string(
             'permit udp $routers 67 local 68',
             temp_aliases=temp_aliases, context=macl.context, parent=self))
 
-        #out 'permit udpDHCP_SERVERS local 68'
+        # out 'permit udpDHCP_SERVERS local 68'
         acl_out.append(metacl.Rule.from_string(
             'permit udp $dhcp local 68',
             temp_aliases=temp_aliases, context=macl.context, parent=self))
-        #out 'permit udpDHCP_SERVERSROUTERS 67'
+        # out 'permit udpDHCP_SERVERSROUTERS 67'
         acl_out.append(metacl.Rule.from_string(
             'permit udp $dhcp $routers 67',
             temp_aliases=temp_aliases, context=macl.context, parent=self))
@@ -325,6 +338,7 @@ class dhcp(Macro):
 
 
 class domain(Macro):
+
     '''Deprecated! Use dns() instead'''
     '''Grants access to the DNS servers, with 'old' set as *argument* also to
     old DNS Servers.'''
@@ -335,7 +349,7 @@ class domain(Macro):
         in_acl = []
         out_acl = []
 
-        for ip in [self.dns_servers, self.dns_servers+self.dns_servers_old][self.args == ['old']]:
+        for ip in [self.dns_servers, self.dns_servers + self.dns_servers_old][self.args == ['old']]:
             in_acl.append(metacl.Rule(
                 'permit', metacl.Filter(['tcp', 'udp'],
                                         macl.context.get_alias('local'),
@@ -357,6 +371,7 @@ class domain(Macro):
 
 
 class dns(Macro):
+
     '''Grants access to the DNS servers, with 'old' set as *argument* also to
     old DNS Servers.'''
 
@@ -396,6 +411,7 @@ class dns(Macro):
 
 class wlan(Macro):
     # opens local lan to wlan-controller
+
     def call(self, macl):
         local = macl.context.get_alias('local', ip_versions='ipv4')[0]
 
@@ -407,10 +423,12 @@ class wlan(Macro):
 
 
 class netbackup(Macro):
+
     '''Opens net or hosts to netBackup server (defined withnetbackup alias)
 
     Usage: netbackup() opens complete network
            netbackup(ip ip ...) opens ip's to netbackup'''
+
     def call(self, macl):
         if len(self.args) == 0:
             # Open whole net to netbackup
@@ -487,13 +505,15 @@ class netbackup(Macro):
 
 
 class faucam(Macro):
+
     '''Opens net or hosts to faucam server (defined withfaucam alias) and
     blocks everything else
 
     Usage: faucam() n/a
            faucam(ip ip ...) opens ip's to faucam'''
+
     def call(self, macl):
-#        if len(self.args) == 0:
+        #        if len(self.args) == 0:
         for h in self.args:
             # Open only given hosts to nagios
             h = metacl.string_to_ips(h, context=macl.context)
@@ -525,6 +545,7 @@ class faucam(Macro):
 
 
 class nagios(Macro):
+
     '''Opens net or hosts to nagios server (defined withnagios alias)
 
     Usage: nagios() opens complete network
@@ -561,6 +582,7 @@ class nagios(Macro):
 
 
 class license(Macro):
+
     def call(self, macl):
         macl.acl_in.insert(0, metacl.Rule.from_string(
             'permit udp local $license 5093',

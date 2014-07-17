@@ -84,47 +84,59 @@ DIRECTIONS = ['in', 'out']
 
 
 class Error(Exception):
+
     """Base class for exceptions in this module."""
 
 
 class IPVersionMissmatchError(Error, Trackable):
+
     '''Rule needs source and destination filters of same IP version.'''
 
 
 class MacroDoesNotExistError(Error, Trackable):
+
     '''The requested macro does not exist.'''
 
 
 class VLANDoesNotExistError(Error):
+
     '''The VLAN couldn't be found in VLANs file.'''
 
 
 class VLANDescriptionError(Error):
+
     '''Description in VLANs file is faulty.'''
 
 
 class NeedsContextError(Error, Trackable):
+
     '''No context was provided, but aliases are used. Can not proceed.'''
 
 
 class InvalidACLError(Error, Trackable):
+
     '''ACL file/string is invalid.'''
 
 
 class UnknownRoutingdomainError(Error):
+
     '''Requested routingdomain is unknown.'''
 
 
 class UnknownRouterError(Error):
+
     '''Requested router is unknown.'''
 
 
 class ProtocolDoesNotSupportPortsError(Error, Trackable):
+
     '''One of the protocols does not support ports, but ports were given.'''
 
 
 class Ports:
+
     '''Ports list and range handeling in one object'''
+
     def __init__(self, *args):
         '''Forms a combination of individual ports and ranges.
 
@@ -264,6 +276,7 @@ class Ports:
 
 # TODO IPs version of Ports
 class IPs:
+
     def __init__(self, singles=None, ranges=None):
         if singles:
             self.singles = singles
@@ -381,6 +394,7 @@ def string_to_ips(string, context=None, temp_aliases=None):
 
 
 class ACL(Trackable):
+
     '''Represents a parsed Policy File, containing Rules for IN, OUT and
        MacroCalls
 
@@ -587,24 +601,24 @@ class ACL(Trackable):
 
                 f.writelines(acl)
                 f.close()
-                
+
                 # Check if html file allready exists
                 if os.path.isfile(hfile):
                     # Delete if file exists
                     os.remove(hfile)
-                    
+
                 # Create html file
                 h = open(hfile, 'w')
-                
+
                 # Correcting rights and group ownership for html file, if configured
                 if umask:
                     os.chmod(hfile, umask)
                 if gid:
                     os.chown(hfile, -1, gid)
-                
-                #write data to html file
+
+                # write data to html file
                 self.writeHTML(h)
-                h.close()   
+                h.close()
 
                 log.debug('Compiled %s to %s' % (context.vlanid, cfile))
             except Exception, err:
@@ -756,13 +770,13 @@ class ACL(Trackable):
 
             # save acl to reset it later
             orig = acl
-            
-            #ignore rules with established or echo-reply extension
-            acl = filter(lambda x: not ('established' in x.extensions),acl)
-            acl = filter(lambda x: not (('echo-reply' in x.extensions) 
-                and self.equals_any(x.filter.sources) 
-                and self.equals_local(x.filter.destinations)) ,acl)
-            
+
+            # ignore rules with established or echo-reply extension
+            acl = filter(lambda x: not ('established' in x.extensions), acl)
+            acl = filter(lambda x: not (('echo-reply' in x.extensions)
+                                        and self.equals_any(x.filter.sources)
+                                        and self.equals_local(x.filter.destinations)), acl)
+
             # check if a rule is never reached cause it is fully contained in an ealier rule
             for i in range(len(acl)):
                 # filter reduces list to the rules never reached
@@ -777,10 +791,10 @@ class ACL(Trackable):
                            ((not x.filter.dports or not acl[i].filter.dports) or
                             filter(x.filter.dports.__contains__, acl[i].filter.dports)),
                            acl[(i + 1):]))
-            
-            #reset acl
+
+            # reset acl
             acl = orig
-            
+
             # remove permit any/local local/any and deny any any
             acl = filter(lambda x: not (x.action == 'deny' and
                                         self.equals_any(x.filter.sources) and
@@ -820,8 +834,6 @@ class ACL(Trackable):
                                not x.filter.destinations[0] == IPv4Network('255.255.255.255/32') and
                                not x.filter.destinations[0] == IPv6Network('fe80::/10'),
                                acl[(i + 1):]))
-
-
 
             # reset acl
             acl = orig
@@ -896,32 +908,32 @@ class ACL(Trackable):
             if not any(map(lambda x: n in x, self.context.get_alias('local'))):
                 return False
         return True
-    
+
     def is_default(self, macros=True, extensions=True):
         '''Returns True if ACL is equal to default ACL.'''
         default = ACL.from_file(config.get('global', 'default_pol'), self.context)
         if self.macros_applied:
             default.apply_macros()
-        
+
         return self.__eq__(default, macros=macros, extensions=extensions)
-    
+
     def __eq__(self, other, macros=True, extensions=True):
         '''Returns True if ACL is equal to *other*.
-        
+
         If macros have only been applied on one ACL, will return False.'''
         # TODO preserve original ACL even after macros have been applied
-        
+
         if not extensions:
             if len(self.acl_in) != len(other.acl_in) or len(self.acl_out) != len(other.acl_out):
                 acls = False
             else:
                 acls = all(map(lambda i: self.acl_in[i].__eq__(other.acl_in[i]),
                                range(len(self.acl_in)))) and \
-                       all(map(lambda i: self.acl_out[i].__eq__(other.acl_out[i]),
-                               range(len(self.acl_out))))
+                    all(map(lambda i: self.acl_out[i].__eq__(other.acl_out[i]),
+                            range(len(self.acl_out))))
         else:
             acls = self.acl_in == other.acl_in and self.acl_out == other.acl_out
-        
+
         return ((not macros or self.macros_applied == other.macros_applied) and
                 (not macros or self.macros == other.macros) and
                 acls and
@@ -930,10 +942,10 @@ class ACL(Trackable):
     def __str__(self):
         return 'ACL:\n MACROS:\n%s\n ACL IN:\n%s\n ACL OUT:\n%s' % \
             (pformat(self.macros, 3), pformat(self.acl_in, 3), pformat(self.acl_out, 3))
-            
-    def writeHTML(self,file):
-        t = HTML.Table(header_row=['line','sources','destination','action','macro'])
-        for dir in ['in','out']:
+
+    def writeHTML(self, file):
+        t = HTML.Table(header_row=['line', 'sources', 'destination', 'action', 'macro'])
+        for dir in ['in', 'out']:
             for f in self.get_rules(dir):
                 source = f.filter.sources
                 destination = f.filter.destinations
@@ -943,7 +955,7 @@ class ACL(Trackable):
                 destinationh = ''
                 sourceString = ''
                 for s in f.filter.sources:
-                    #prefilxlen check to avoid /32
+                    # prefilxlen check to avoid /32
                     if s.prefixlen == 32 and s.version == 4:
                         sourceString += str(s.network) + '<br>'
                     else:
@@ -956,7 +968,7 @@ class ACL(Trackable):
                     else:
                         destinationString += str(d) + '<br>'
 
-                for host,ip in self.context.ipv6_aliases.iteritems():
+                for host, ip in self.context.ipv6_aliases.iteritems():
 
                     if source == ip:
                         sourceString = '<b>' + host + "</b>: " + '<br>' + sourceString
@@ -964,7 +976,7 @@ class ACL(Trackable):
                     if destination == ip:
                         destinationString = '<b>' + host + "</b>: " + '<br>' + destinationString
 
-                for host,ip in self.context.ipv4_aliases.iteritems():
+                for host, ip in self.context.ipv4_aliases.iteritems():
 
                     if source == ip:
                         sourceString = '<b>' + host + "</b>: " + '<br>' + sourceString
@@ -972,12 +984,12 @@ class ACL(Trackable):
                     if destination == ip:
                         destinationString = '<b>' + host + "</b>: " + '<br>' + destinationString
 
-                #remove ipv4 + ipv6 any:
-                if source == [IPv4Network('0.0.0.0/0'),IPv6Network('::1/0')]:
+                # remove ipv4 + ipv6 any:
+                if source == [IPv4Network('0.0.0.0/0'), IPv6Network('::1/0')]:
                     sourceString = '<b>any:</b>' + '<br>' + sourceString
-            
-                if destination == [IPv4Network('0.0.0.0/0'),IPv6Network('::1/0')]:
-                    destinationString= '<b>any:</b>' + '<br>' + destinationString
+
+                if destination == [IPv4Network('0.0.0.0/0'), IPv6Network('::1/0')]:
+                    destinationString = '<b>any:</b>' + '<br>' + destinationString
 
                 if (f.action == 'deny'):
                     action = HTML.TableCell(f.action, bgcolor='Red')
@@ -988,7 +1000,7 @@ class ACL(Trackable):
                 if f.parent:
                     macro = type(f.parent).__name__
 
-                t.rows.append([f.filter.lineno,sourceString,destinationString,action,macro])
+                t.rows.append([f.filter.lineno, sourceString, destinationString, action, macro])
             if dir is 'in':
                 htmlcodeIn = str(t)
             else:
@@ -1003,6 +1015,7 @@ class ACL(Trackable):
 
 
 class Context(object):
+
     '''Represents a context, within which a ACL can be checked and compiled.
 
     It knows aliases and other information, necessary to understand a ACL and
@@ -1030,7 +1043,7 @@ class Context(object):
         for k, v in hosts_config.items('include'):
             if not v:
                 continue
-            for l in open(basepath+'/'+v).readlines():
+            for l in open(basepath + '/' + v).readlines():
                 if not l.startswith('#') and not l.startswith(';') and len(l) > 0:
                     self.set_alias(k, l.strip())
 
@@ -1237,8 +1250,8 @@ class Context(object):
                 self.routers[-1]['name'] = r
             except ConfigParser.NoSectionError:
                 raise UnknownRouterError(('Router section (router_%s) not found in ' +
-                                         'routers_file (%s).') % (r, routers_file))
-        
+                                          'routers_file (%s).') % (r, routers_file))
+
         self.dialect_module = __import__('lib.dialects.' + self.dialect, fromlist='lib.dialects')
 
         self.user = c.get('access', 'user')
@@ -1257,7 +1270,7 @@ class Context(object):
     def get_policy_path(self):
         '''Returns path to policy file.'''
         return '%s/%s/%s' % (config.get("global", "policies_dir"), self.routingdomain,
-                             self.vlanid+config.get("global", "policies_ext"))
+                             self.vlanid + config.get("global", "policies_ext"))
 
     def get_policy_dir(self):
         '''Returns path to directory of policy files for same routingdomain.'''
@@ -1266,19 +1279,20 @@ class Context(object):
     def get_acl(self):
         '''Returns :class:`ACL` object for this context'''
         return ACL.from_context(self)
-        
+
     def __eq__(self, other):
         '''Returns True if routingdomain, vlanid and interface are the same.
-        
+
         Other parameters are not checked, since the should be equal.'''
         return (self.routingdomain == other.routingdomain and
                 self.vlanid == other.vlanid and
                 self.interfaces == other.interfaces)
-                
 
 
 class MacroCall(Trackable):
+
     '''Reference to a macro with possible arguments.'''
+
     def __init__(self, name, arguments="", filename=None, lineno=None, parent=None):
         self.name = name
         self.arguments = arguments
@@ -1315,16 +1329,17 @@ class MacroCall(Trackable):
     def call(self, acl):
         '''Applies macro with arguments to *acl* ACL object.'''
         return self.macro.call(acl)
-        
+
     def __eq__(self, other):
         '''Returns True if macro name and arguments are the same.
-        
+
         Other parameters are not checked.'''
         return (self.name == other.name and
                 self.arguments == other.arguments)
 
 
 class Rule(Trackable):
+
     '''Abstraction of one rule from the policy file.'''
 
     def __init__(self, action, filter, extensions=[], filename=None, lineno=None, parent=None):
@@ -1383,7 +1398,7 @@ class Rule(Trackable):
 
     def __repr__(self):
         # TODO include filename, lineno and parent in output
-        r = self.__class__.__name__+'(%s, %s' % (self.action.__repr__(), self.filter.__repr__())
+        r = self.__class__.__name__ + '(%s, %s' % (self.action.__repr__(), self.filter.__repr__())
 
         if self.extensions:
             r += ', %s' % self.extensions.__repr__()
@@ -1394,10 +1409,10 @@ class Rule(Trackable):
             r += ', lineno=%s' % self.lineno.__repr__()
 
         return r + ')'
-    
+
     def __eq__(self, other, extensions=True):
         '''Returns True if action, filter and extensions are the same.
-        
+
         Other parameters are not checked.'''
         return (self.action == other.action and
                 self.filter == other.filter and
@@ -1405,6 +1420,7 @@ class Rule(Trackable):
 
 
 class Filter(Trackable):
+
     '''Describes a filter under which condition a Rule applies.
 
     Selection can be done based on protocol, source and destination addresses
@@ -1563,7 +1579,7 @@ class Filter(Trackable):
 
     def __repr__(self):
         # TODO include filename, lineno and parent in output
-        r = self.__class__.__name__+'(%s, %s, %s' % \
+        r = self.__class__.__name__ + '(%s, %s, %s' % \
             (self.protocols.__repr__(), self.sources.__repr__(), self.destinations.__repr__())
 
         if self.sports:
@@ -1577,10 +1593,10 @@ class Filter(Trackable):
             r += ', lineno=%s' % self.lineno.__repr__()
 
         return r + ')'
-    
+
     def __eq__(self, other):
         '''Returns True if protocols, sources, sports, destinations and dports are the same.
-        
+
         Other parameters are not checked.'''
         return (self.protocols == other.protocols and
                 self.sources == other.sources and
