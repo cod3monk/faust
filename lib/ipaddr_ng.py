@@ -53,12 +53,12 @@ def IPv4Descriptor(desc):
         for block in lastoct.split(','):
             if '-' in block:
                 start, end = block.split('-')
-                startaddr = ipaddr.IPv4Address('.'.join(octets[:-1])+'.'+start)
-                endaddr = ipaddr.IPv4Address('.'.join(octets[:-1])+'.'+end)
+                startaddr = ipaddr.IPv4Address('.'.join(octets[:-1]) + '.' + start)
+                endaddr = ipaddr.IPv4Address('.'.join(octets[:-1]) + '.' + end)
 
-                iplist += map(ipaddr.IPv4Address, range(int(startaddr), int(endaddr+1)))
+                iplist += map(ipaddr.IPv4Address, range(int(startaddr), int(endaddr + 1)))
             else:
-                iplist.append(ipaddr.IPv4Address('.'.join(octets[:-1])+'.'+block))
+                iplist.append(ipaddr.IPv4Address('.'.join(octets[:-1]) + '.' + block))
 
     return ipaddr.collapse_address_list(iplist)
 
@@ -100,12 +100,12 @@ def IPv6Descriptor(desc):
         for block in lastoct.split(','):
             if '-' in block:
                 start, end = block.split('-')
-                startaddr = ipaddr.IPv6Address(':'.join(octets[:-1])+':'+start)
-                endaddr = ipaddr.IPv6Address(':'.join(octets[:-1])+':'+end)
+                startaddr = ipaddr.IPv6Address(':'.join(octets[:-1]) + ':' + start)
+                endaddr = ipaddr.IPv6Address(':'.join(octets[:-1]) + ':' + end)
 
-                iplist += map(ipaddr.IPv6Address, range(int(startaddr), int(endaddr+1)))
+                iplist += map(ipaddr.IPv6Address, range(int(startaddr), int(endaddr + 1)))
             else:
-                iplist.append(ipaddr.IPv6Address(':'.join(octets[:-1])+':'+block))
+                iplist.append(ipaddr.IPv6Address(':'.join(octets[:-1]) + ':' + block))
 
     return ipaddr.collapse_address_list(iplist)
 

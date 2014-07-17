@@ -1,0 +1,14 @@
+lan()
+domain()
+broadcast()
+antiSpoof()
+update()
+
+IN:
+permit ip local any
+deny ip any any
+
+OUT:
+permit ip any local
+deny ip any any
+
