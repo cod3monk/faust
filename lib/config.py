@@ -28,17 +28,14 @@ _cp = ConfigParser.SafeConfigParser()
 
 
 class Error(Exception):
-
     '''Base config exception class.'''
 
 
 class ConfigError(Error):
-
     """Problem parsing the config ini file."""
 
 
 class ConfigNotLoadedError(Error):
-
     '''Config was not loaded.'''
 
 
@@ -49,23 +46,24 @@ def is_loaded():
 def load(config_location='config.ini'):
     """Loads config file and does some checks for validity of configurations.
     Also configures logging.
-
+    
     Changes to directory of config file.
 
     Returns ConfigParser instance"""
 
     if len(_cp.read(config_location)) == 0:
         raise ConfigError('File could not be read: %s' % config_location)
-
+    
     logging.config.fileConfig(config_location)
-
+    
     config_dir = path.dirname(path.abspath(config_location))
     log.debug("Configuration directory is: %s" % config_dir)
-
+    
     # Preserver current import paths
     sys.path.insert(0, getcwd())
     # Changing directory to config_dir, thus all paths are now relative to config.ini location
     chdir(config_dir)
+    
 
     if not isfile(_cp.get('global', 'aliases_file')):
         raise ConfigError('aliases_file does not exist or is not set in %s' % config_location)

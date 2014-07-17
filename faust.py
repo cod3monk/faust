@@ -80,10 +80,9 @@ except lib.config.ConfigError, err:
     sys.exit(2)
 log = logging.getLogger('faust')
 
-
 def compare_acls(routingdomain, vlanid, output=sys.stdout):
     '''Compares local ACLs with active ACLs found on router.
-
+    
     Will write diff information to `output` (default `sys.stdout`).
     '''
     try:
@@ -137,7 +136,7 @@ def print_conflicts(confs):
     '''Prints the list of given conflicts on log.info'''
     lines = []
     for c in confs:
-        # conflicts from the same line are only shown once
+        #conflicts from the same line are only shown once
         if(c[2].lineno not in lines):
             f = open(c[2].filename)
             polLines = f.readlines()
@@ -145,17 +144,17 @@ def print_conflicts(confs):
             log.info("in file %s:" % c[2].filename)
             lines += [c[2].lineno]
             for line in c[2:]:
-                log.info("%s in line %s" % (polLines[line.lineno - 1], line.lineno))
+                log.info("%s in line %s" % (polLines[line.lineno-1], line.lineno))
 
-            # diffrent presentation style:
-            # for line in c[2:]:
+            #diffrent presentation style:
+            #for line in c[2:]:
             #    log.info("%s in line %s" %(line,line.lineno))
             #    lines += [line.lineno]
 
 
 def choose_conflicts(conflicts):
     '''Shows all `conflicts` by types and prints them on `log.info` if choosen'''
-    # split up conflicts into types
+    #split up conflicts into types
     notLocal = []
     contained = []
     neverReached = []
@@ -219,7 +218,7 @@ def main(arguments):
         # Do we want to compile and install all vlans in one routing domain?
         if not vlans:
             try:
-                l = os.listdir(lib.config.get('global', 'policies_dir') + '/' + routingdomain)
+                l = os.listdir(lib.config.get('global', 'policies_dir')+'/'+routingdomain)
             except OSError:
                 log.error("Domain policy directory not found.")
                 sys.exit(2)
@@ -234,7 +233,7 @@ def main(arguments):
             try:
                 context = metacl.Context(routingdomain, vlanid)
                 acl = context.get_acl()
-                # make sanity_check for vlanid
+                #make sanity_check for vlanid
                 if not arguments['--quiet']:
                     conflicts = acl.sanity_check()
                     if conflicts:
@@ -251,7 +250,7 @@ def main(arguments):
                     msg = err.origin(with_sourceline=True)
                 else:
                     msg = ''
-                log.warning(msg + '%s' % err)
+                log.warning(msg+'%s' % err)
                 fail_count.append(vlanid)
                 continue
 
@@ -259,7 +258,7 @@ def main(arguments):
                 ipv6_count += 1
 
         log.info("Successfully compiled %s ACLs and %.2f %% with IPv6" %
-                 (len(vlans) - len(fail_count), float(ipv6_count) / float(len(vlans)) * 100))
+                 (len(vlans)-len(fail_count), float(ipv6_count)/float(len(vlans))*100))
 
         if fail_count:
             log.warning("%s ACLs did not compile, they are: %s" %
@@ -271,7 +270,7 @@ def main(arguments):
         # Do we want to compile and install all vlans in one routing domain?
         if not vlans:
             try:
-                l = os.listdir(lib.config.get('global', 'policies_dir') + '/' + routingdomain)
+                l = os.listdir(lib.config.get('global', 'policies_dir')+'/'+routingdomain)
             except OSError as e:
                 log.critical("Could not read policy directory for routing domain '%s': %s" %
                              (routingdomain, e))
@@ -288,7 +287,7 @@ def main(arguments):
             try:
                 context = metacl.Context(routingdomain, vlanid)
                 acl = context.get_acl()
-                # make sanity_check for vlanid
+                #make sanity_check for vlanid
                 if not arguments['--quiet']:
                     conflicts = acl.sanity_check()
                     if conflicts:
@@ -305,7 +304,7 @@ def main(arguments):
                     msg = err.origin(with_sourceline=True)
                 else:
                     msg = ''
-                log.warning(msg + '%s' % err)
+                log.warning(msg+'%s' % err)
                 fail_count.append(vlanid)
                 continue
 
@@ -315,7 +314,7 @@ def main(arguments):
                 ipv6_count += 1
 
         log.info("Successfully installed %s ACLs and %.2f %% with IPv6" %
-                 (len(vlans) - len(fail_count), float(ipv6_count) / float(len(vlans)) * 100))
+                 (len(vlans)-len(fail_count), float(ipv6_count)/float(len(vlans))*100))
 
         if fail_count:
             log.warning("%s ACLs did not install, they are: %s" %
@@ -360,14 +359,14 @@ def main(arguments):
                 # Getting routers by routingdomain
                 c = ConfigParser.SafeConfigParser()
                 routers_file = lib.config.get('global', 'routers_file')
-                assert len(c.read(routers_file)) > 0, 'File could not be read: ' + routers_file
+                assert len(c.read(routers_file)) > 0, 'File could not be read: '+routers_file
 
                 for f in found:
                     try:
                         routers = c.get('routingdomains', f[0]).split(',')
                         routers = map(lambda x: x.strip(), routers)
                     except:
-                        routers = 'not configured in ' + routers_file
+                        routers = 'not configured in '+routers_file
 
                     print f[0], 'is handled by:', routers
 
@@ -380,9 +379,9 @@ def main(arguments):
         sys.exit(2)
 
     elif arguments['block']:
-        comment = str(datetime.datetime.now()) + ' by ' + getpass.getuser()
+        comment = str(datetime.datetime.now())+' by '+getpass.getuser()
         if arguments['<comment>']:
-            comment += ': ' + ' '.join(arguments['<comment>'])
+            comment += ': '+' '.join(arguments['<comment>'])
 
         try:
             ip = ipaddr.IPAddress(arguments['<ip>'])
@@ -394,7 +393,7 @@ def main(arguments):
         tnets = read_lannetfile(lib.config.get('global', 'transit_file'))
 
         found = []
-        for n in nets + tnets:
+        for n in nets+tnets:
             if type(ip) is ipaddr.IPv4Address:
                 if n[3] and ip in n[3]:
                     found.append(n)
@@ -419,20 +418,20 @@ def main(arguments):
             log.warning('Multiple VLANs found for given IP, continuing anyway.')
         for n in found:
             rd, vlanid = n[0], n[1]
-            log.info('Blocking IP in VLAN ' + str(vlanid) + ' on ' + rd + '...')
+            log.info('Blocking IP in VLAN '+str(vlanid)+' on '+rd+'...')
             c = metacl.Context(rd, vlanid)
 
             # RCS checkout
             if lib.config.get('global', 'use_rcs') == 'true':
-                cmd = 'co -l ' + c.get_policy_path()
+                cmd = 'co -l '+c.get_policy_path()
                 sts = os.system(cmd)
                 if sts:
-                    log.error('RCS checkout of ' + c.get_policy_path() + ' failed.')
+                    log.error('RCS checkout of '+c.get_policy_path()+' failed.')
                     sys.exit(2)
 
             f = open(c.get_policy_path())
             l = f.readlines()
-            l.insert(0, 'block(' + arguments['<ip>'] + ') # ' + comment + '\n')
+            l.insert(0, 'block('+arguments['<ip>']+') # '+comment+'\n')
             f.close()
             f = open(c.get_policy_path(), 'w')
             f.writelines(l)
@@ -440,10 +439,10 @@ def main(arguments):
 
             # RCS checkin
             if lib.config.get('global', 'use_rcs') == 'true':
-                cmd = 'ci -u -m"block by faust" ' + c.get_policy_path()
+                cmd = 'ci -u -m"block by faust" '+c.get_policy_path()
                 sts = os.system(cmd)
                 if sts:
-                    log.error('RCS checkin of ' + c.get_policy_path() + ' failed.')
+                    log.error('RCS checkin of '+c.get_policy_path()+' failed.')
                     sys.exit(2)
 
             metacl.ACL.from_context(c).install()
@@ -461,7 +460,7 @@ def main(arguments):
 
         found = []
         ip_versions = set()
-        for n in nets + tnets:
+        for n in nets+tnets:
             if type(ip) is ipaddr.IPv4Address:
                 if n[3] and ip in n[3]:
                     ip_versions.add('ipv4')
@@ -487,7 +486,7 @@ def main(arguments):
                 for r in rules:
                     f = r.filter
                     if r.lineno not in linenos and \
-                            any(map(lambda x: ip in x, f.sources + f.destinations)):
+                            any(map(lambda x: ip in x, f.sources+f.destinations)):
                         print '%s\t%s' % (r.lineno, r.sourceline.strip())
                         linenos.append(r.lineno)
         else:
@@ -505,14 +504,14 @@ def main(arguments):
         tnets = read_lannetfile(lib.config.get('global', 'transit_file'))
 
         found = []
-        for n in nets + tnets:
+        for n in nets+tnets:
             if type(ip) is ipaddr.IPv4Address:
                 if n[3] and ip in n[3]:
                     found.append(n)
             elif type(ip) is ipaddr.IPv6Address:
                 if n[4] and ip in n[4]:
                     found.append(n)
-
+        
         if len(found) == 0:
             try:
                 default = tuple(lib.config.get('global', 'default_block_vlan').split(' '))
@@ -538,15 +537,15 @@ def main(arguments):
 
                 # RCS checkout
                 if lib.config.get('global', 'use_rcs') == 'true':
-                    cmd = 'co -l ' + c.get_policy_path()
+                    cmd = 'co -l '+c.get_policy_path()
                     sts = os.system(cmd)
                     if sts:
-                        log.error('RCS checkout of ' + c.get_policy_path() + ' failed.')
+                        log.error('RCS checkout of '+c.get_policy_path()+' failed.')
                         sys.exit(2)
 
                 f = open(c.get_policy_path())
                 orig = f.read()
-                new = re.sub(re.escape('block(' + arguments['<ip>'] + ')') + r'[^\n]*\n', '', orig)
+                new = re.sub(re.escape('block('+arguments['<ip>']+')')+r'[^\n]*\n', '', orig)
                 f.close()
 
                 if orig != new:
@@ -560,10 +559,10 @@ def main(arguments):
 
                 # RCS checkin
                 if lib.config.get('global', 'use_rcs') == 'true':
-                    cmd = 'ci -u -m"block by faust" ' + c.get_policy_path()
+                    cmd = 'ci -u -m"block by faust" '+c.get_policy_path()
                     sts = os.system(cmd)
                     if sts:
-                        log.error('RCS checkin of ' + c.get_policy_path() + ' failed.')
+                        log.error('RCS checkin of '+c.get_policy_path()+' failed.')
                         sys.exit(2)
 
                 if not error:
@@ -580,7 +579,7 @@ def main(arguments):
         # Do we want to compile and install all vlans in one routing domain?
         if not vlans:
             try:
-                l = os.listdir(lib.config.get('global', 'policies_dir') + '/' + routingdomain)
+                l = os.listdir(lib.config.get('global', 'policies_dir')+'/'+routingdomain)
             except OSError as e:
                 log.error("Could not read policy directory for routing domain '%s': %s" %
                           (routingdomain, str(e)))
@@ -602,7 +601,7 @@ def main(arguments):
                     msg = err.origin(with_sourceline=True)
                 else:
                     msg = ''
-                log.error(msg + '%s' % err)
+                log.error(msg+'%s' % err)
                 continue
 
     elif arguments['create']:
@@ -633,7 +632,7 @@ def main(arguments):
                 if umask:
                     import stat
                     # We make shure that also executable flags are set
-                    os.chmod(pol_directory, umask + stat.S_IXUSR + stat.S_IXGRP + stat.S_IXOTH)
+                    os.chmod(pol_directory, umask+stat.S_IXUSR+stat.S_IXGRP+stat.S_IXOTH)
                 if gid:
                     os.chown(pol_directory, -1, gid)
             except Exception as err:
@@ -666,7 +665,7 @@ def main(arguments):
         # Do we want to check all vlans in one routing domain?
         if not arguments['<vlan_id>']:
             try:
-                l = os.listdir(lib.config.get('global', 'policies_dir') + '/' + routingdomain)
+                l = os.listdir(lib.config.get('global', 'policies_dir')+'/'+routingdomain)
             except OSError as e:
                 log.error("Could not read policy directory for routing domain '%s': %s" %
                           (routingdomain, str(e)))
@@ -689,7 +688,7 @@ def main(arguments):
                     msg = err.origin(with_sourceline=True)
                 else:
                     msg = ''
-                log.error(msg + '%s' % err)
+                log.error(msg+'%s' % err)
                 fail_count.append(vlanid)
                 continue
 
@@ -728,7 +727,7 @@ def main(arguments):
         found_src = []
         found_dst = []
         ip_versions = set()
-        for n in nets + tnets:
+        for n in nets+tnets:
             if type(src_ip) is ipaddr.IPv4Address:
                 if n[3] and src_ip in n[3]:
                     ip_versions.add('ipv4')
@@ -744,17 +743,17 @@ def main(arguments):
 
         if len(found_src) > 0 and len(found_dst):
             if len(found_src) > 1 or len(found_dst) > 1:
-                # VLAN file probably wrong
+                #VLAN file probably wrong
                 log.warning('Multiple VLANs found for given IP. Aborting')
                 sys.exit(2)
 
-            # for sources
+            #for sources
             rd, vlanid = found_src[0][0], found_src[0][1]
             c = metacl.Context(rd, vlanid)
             acl = c.get_acl()
             acl.apply_macros()
             rules = acl.get_rules(ip_versions=list(ip_versions), directions='in')
-            # filter rules to match only when destination is dst_ip
+            #filter rules to match only when destination is dst_ip
             rules = filter(lambda x: any(map(lambda y: dst_ip in y, x.filter.destinations)), rules)
             rules = filter(lambda x: any(map(lambda y: src_ip in y, x.filter.sources)), rules)
             if arguments['--protocol'] is not None:
@@ -769,23 +768,24 @@ def main(arguments):
                 print "lineno  rule"
                 linenos = []
                 for r in rules:
+                    #f = r.filter
                     if r.lineno not in linenos:
                         if 'permit ' not in r.sourceline and 'deny ' not in r.sourceline:
-                            info = ' (' + str(r) + ')'
+                            info = ' ('+str(r)+')'
                         else:
                             info = ''
                         print '%s\t%s%s' % (r.lineno, r.sourceline.strip(), info)
-                        # to prevent same rule printed twice
+                        #to prevent same rule printed twice
                         linenos.append(r.lineno)
                 print
 
-            # for destination
+            #for destination
             rd, vlanid = found_dst[0][0], found_dst[0][1]
             c = metacl.Context(rd, vlanid)
             acl = c.get_acl()
             acl.apply_macros()
             rules = acl.get_rules(ip_versions=list(ip_versions), directions='out')
-            # filter rules to match only when source is src_ip
+            #filter rules to match only when source is src_ip
             rules = filter(lambda x: any(map(lambda y: src_ip in y, x.filter.sources)), rules)
             rules = filter(lambda x: any(map(lambda y: dst_ip in y, x.filter.destinations)),
                            rules)
@@ -804,11 +804,11 @@ def main(arguments):
                     f = r.filter
                     if r.lineno not in linenos:
                         if 'permit ' not in r.sourceline and 'deny ' not in r.sourceline:
-                            info = ' (' + str(r) + ')'
+                            info = ' ('+str(r)+')'
                         else:
                             info = ''
                         print '%s\t%s%s' % (r.lineno, r.sourceline.strip(), info)
-                        # to prevent same rule printed twice
+                        #to prevent same rule printed twice
                         linenos.append(r.lineno)
 
         else:
@@ -822,7 +822,7 @@ def main(arguments):
 if __name__ == "__main__":
     try:
         arguments = docopt.docopt(__doc__, version='FAUST 2.0b1 Gold')
-        # print arguments
+        #print arguments
         main(arguments)
     except KeyboardInterrupt:
         log.warning('Aborted by user interaction.')

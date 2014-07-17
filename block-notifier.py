@@ -20,8 +20,8 @@ from lib import config
 import os
 
 config.load()
-policies_dir = config.get('global', 'policies_dir')
-policies_ext = config.get('global', 'policies_ext')
+policies_dir = config.get('global','policies_dir')
+policies_ext = config.get('global','policies_ext')
 
 for f in os.listdir(policies_dir):
     dirname = os.path.join(policies_dir, f)
@@ -32,6 +32,6 @@ for f in os.listdir(policies_dir):
                 lines = open(filename).readlines()
                 blocks = filter(lambda x: x.startswith('block('), lines)
                 if blocks:
-                    print filename, 'containes the following block lines:'
-                    # write each block rule in new line; [:-1] removes last newline
+                    print filename,'containes the following block lines:'
+                    #write each block rule in new line; [:-1] removes last newline
                     print ''.join(map(lambda x: x.strip() + "\n", blocks))[:-1]
