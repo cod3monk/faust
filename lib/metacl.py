@@ -757,7 +757,11 @@ class ACL(Trackable):
             # save acl to reset it later
             orig = acl
             
+            #ignore rules with established or echo-reply extension
             acl = filter(lambda x: not ('established' in x.extensions),acl)
+            acl = filter(lambda x: not (('echo-reply' in x.extensions) 
+                and self.equals_any(x.filter.sources) 
+                and self.equals_local(x.filter.destinations)) ,acl)
             
             # check if a rule is never reached cause it is fully contained in an ealier rule
             for i in range(len(acl)):
