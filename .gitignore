@@ -44,5 +44,5 @@ Thumbs.db
 
 # FAUST specific files and folders #
 ####################################
-config.ini
-policies
+/config.ini
+/policies
