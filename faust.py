@@ -351,12 +351,19 @@ def main(arguments):
 
         if len(found) > 0:
             print 'Found', ip, 'in the following VLAN(s):'
-            tt = texttable.Texttable()
-            tt.header(['RD', 'Id', 'Name', 'Netzv4', 'NetzV6', 'Kommentar'])
-            tt.add_rows(found, header=False)
+            for f in found:
+                t1 = texttable.Texttable()
+                t2 = texttable.Texttable()
+                t1.header(['RD', 'Id', 'Name', 'Kommentar'])
+                liste = f[0:3]
+                liste.append(f[5])
+                t1.add_row(liste)
+                t2.header(['Netz v4', 'Netz v6'])
+                t2.add_row(f[3:5])
+                print t1.draw()
+                print t2.draw()
+                print '#' * 80
             try:
-                print tt.draw()
-
                 # Getting routers by routingdomain
                 c = ConfigParser.SafeConfigParser()
                 routers_file = lib.config.get('global', 'routers_file')
