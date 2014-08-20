@@ -201,6 +201,18 @@ def choose_conflicts(conflicts):
         choice = sys.stdin.readline()
 
 
+def str_to_int(s, default=None):
+    '''
+    Returns an int according to string. If string could not be converted, 
+    default will be returned
+    '''
+    
+    try:
+        return int(s)
+    except ValueError:
+        return default
+
+
 def main(arguments):
     '''Main function taking care of all command-line functionality.'''
     if len(sys.argv) <= 1:
@@ -225,6 +237,7 @@ def main(arguments):
                 sys.exit(2)
             ext = lib.config.get('global', 'policies_ext')
             vlans = map(lambda x: x[:-len(ext)], filter(lambda x: x.endswith(ext), l))
+            vlans.sort(key=lambda i: str_to_int(i))
 
         log.info("Compiling ACL(s) for vlan(s): %s" % vlans)
 
@@ -278,6 +291,7 @@ def main(arguments):
                 sys.exit(2)
             ext = lib.config.get('global', 'policies_ext')
             vlans = map(lambda x: x[:-len(ext)], filter(lambda x: x.endswith(ext), l))
+            vlans.sort(key=lambda i: str_to_int(i))
 
         log.info("Installing ACLs for vlan(s): %s" % (vlans))
 
@@ -594,6 +608,7 @@ def main(arguments):
                 sys.exit(2)
             ext = lib.config.get('global', 'policies_ext')
             vlans = map(lambda x: x[:-len(ext)], filter(lambda x: x.endswith(ext), l))
+            vlans.sort(key=lambda i: str_to_int(i))
 
         log.info("Checking ACLs for vlan(s): %s" % vlans)
 
@@ -680,6 +695,7 @@ def main(arguments):
                 sys.exit(2)
             ext = lib.config.get('global', 'policies_ext')
             vlans = map(lambda x: x[:-len(ext)], filter(lambda x: x.endswith(ext), l))
+            vlans.sort(key=lambda i: str_to_int(i))
 
         log.info("Checking ACLs for vlan(s): %s" % (vlans))
 
