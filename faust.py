@@ -172,33 +172,38 @@ def choose_conflicts(conflicts):
         else:
             log.error("Conflict name not found: %s" % c[0])
 
-    log.info("%s Conflicts for Rule not in local (1)" % len(notLocal))
-    log.info("%s Conflicts for Rule contained in later rule (2)" % len(contained))
-    log.info("%s Conflicts for Rules overlaps (3)" % len(overlap))
-    log.info("%s Conflicts for Rule never reached (4)" % len(neverReached))
-    log.info("Choose from Conflicts or (n) to continue")
-    choice = sys.stdin.readline()
-    while(choice != "n\n"):
-        log.info("If one line caused multiple conflicts the line will be shown only once:")
-        if choice == "1\n":
-            log.info("Rule not in local:")
-            print_conflicts(notLocal)
-        elif choice == "2\n":
-            log.info("Rule contained in later rule:")
-            print_conflicts(contained)
-        elif choice == "3\n":
-            log.info("Rules overlaps:")
-            print_conflicts(overlap)
-        elif choice == "4\n":
-            log.info("Rule never reached:")
-            print_conflicts(neverReached)
-        log.info('\n')
+    choice = ""
+    while(choice != "\n"):
         log.info("%s Conflicts for Rule not in local (1)" % len(notLocal))
         log.info("%s Conflicts for Rule contained in later rule (2)" % len(contained))
         log.info("%s Conflicts for Rules overlaps (3)" % len(overlap))
         log.info("%s Conflicts for Rule never reached (4)" % len(neverReached))
-        log.info("Choose from Conflicts or (n) to continue")
+        log.info("Choose from conflicts, (return) to continue or (n) to abort compilation of this ACL.")
         choice = sys.stdin.readline()
+        
+        if choice == "1\n":
+            log.info("If one line caused multiple conflicts the line will be shown only once:")
+            log.info("Rule not in local:")
+            print_conflicts(notLocal)
+        elif choice == "2\n":
+            log.info("If one line caused multiple conflicts the line will be shown only once:")
+            log.info("Rule contained in later rule:")
+            print_conflicts(contained)
+        elif choice == "3\n":
+            log.info("If one line caused multiple conflicts the line will be shown only once:")
+            log.info("Rules overlaps:")
+            print_conflicts(overlap)
+        elif choice == "4\n":
+            log.info("If one line caused multiple conflicts the line will be shown only once:")
+            log.info("Rule never reached:")
+            print_conflicts(neverReached)
+        if choice == "n\n":
+            return False
+        elif choice == "\n":
+            break
+        log.info('\n')
+    
+    return True
 
 
 def str_to_int(s, default=None):
@@ -252,10 +257,8 @@ def main(arguments):
                     conflicts = acl.sanity_check()
                     if conflicts:
                         log.info("sanity_check found %s Conflicts in %s" % (len(conflicts), vlanid))
-                        choose_conflicts(conflicts)
-                        log.info("press (y) to continue compiling or other key to abort")
-                        choice = sys.stdin.readline()
-                        if choice != "y\n":
+                        continue_compilation = choose_conflicts(conflicts)
+                        if not continue_compilation:
                             fail_count.append(vlanid)
                             continue
                 cfile, acl, ipv6 = acl.compile()
