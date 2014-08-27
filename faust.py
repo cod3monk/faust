@@ -310,10 +310,8 @@ def main(arguments):
                     conflicts = acl.sanity_check()
                     if conflicts:
                         log.info("sanity_check found %s Conflicts in %s" % (len(conflicts), vlanid))
-                        choose_conflicts(conflicts)
-                        log.info("press (y) to continue compiling or other key to abort")
-                        choice = sys.stdin.readline()
-                        if choice != "y\n":
+                        continue_compilation = choose_conflicts(conflicts)
+                        if not continue_compilation:
                             fail_count.append(vlanid)
                             continue
                 cfile, acl_string, ipv6 = acl.compile()
