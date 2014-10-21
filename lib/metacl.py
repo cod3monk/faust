@@ -218,6 +218,10 @@ class Ports:
         return data
 
     def __contains__(self, port):
+        # If singles and ranges are empty return true
+        if not self.singles and not self.ranges:
+            return True
+        
         # Find in single ports:
         if port in self.singles:
             return True
@@ -785,12 +789,10 @@ class ACL(Trackable):
                 ret += map(
                     lambda r2: ('Rule never reached', d, r2, acl[i]),
                     filter(lambda x: x.filter in acl[i].filter and
-                           x.filter.protocols == acl[i].filter.protocols and
-                           ((not x.filter.sports or not acl[i].filter.sports) or
-                            filter(x.filter.sports.__contains__, acl[i].filter.sports)) and
-                           ((not x.filter.dports or not acl[i].filter.dports) or
-                            filter(x.filter.dports.__contains__, acl[i].filter.dports)),
-                           acl[(i + 1):]))
+                        x.filter.protocols == acl[i].filter.protocols and
+                        acl[i].filter.sports in x.filter.sports and
+                        acl[i].filter.dports in x.filter.dports,
+                        acl[(i + 1):]))
 
             # reset acl
             acl = orig
@@ -871,10 +873,8 @@ class ACL(Trackable):
                     filter(lambda x: acl[i].filter in x.filter and
                            acl[i].action == x.action and
                            x.filter.protocols == acl[i].filter.protocols and
-                           ((not x.filter.sports or not acl[i].filter.sports) or
-                            filter(x.filter.sports.__contains__, acl[i].filter.sports)) and
-                           ((not x.filter.dports or not acl[i].filter.dports) or
-                            filter(x.filter.dports.__contains__, acl[i].filter.dports)),
+                           acl[i].filter.sports in x.filter.sports and
+                           acl[i].filter.dports in x.filter.dports,
                            acl[(i + 1):]))
 
         return ret

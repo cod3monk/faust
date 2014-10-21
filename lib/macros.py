@@ -599,8 +599,22 @@ class license(Macro):
             context=macl.context, parent=self))
 
 
+class kopierer(Macro):
+
+    '''Allows snmp answers from $kopierer'''
+
+    def call(self, macl):
+        macl.acl_out.insert(0, metacl.Rule.from_string(
+            'permit tcp $kopierer local 20,21,389,445',
+            context=macl.context, parent=self, ignore_mismatch=True))
+        macl.acl_out.insert(0, metacl.Rule.from_string(
+            'permit udp $kopierer 161 local',
+            context=macl.context, parent=self, ignore_mismatch=True))
+
+
+
 class block(Macro):
-    dependencies = [nagios, lan, dns, domain, dhcp, broadcast, update, nms, faucam]
+    dependencies = [nagios, lan, dns, domain, dhcp, dhcp6, broadcast, update, nms, faucam, license, netbackup, wlan, kopierer]
 
     def call(self, macl):
         local = macl.context.get_alias('local')
