@@ -221,7 +221,7 @@ class Ports:
         # If singles and ranges are empty return true
         if not self.singles and not self.ranges:
             return True
-        
+
         # Find in single ports:
         if port in self.singles:
             return True
@@ -790,8 +790,8 @@ class ACL(Trackable):
                     lambda r2: ('Rule never reached', d, r2, acl[i]),
                     filter(lambda x: x.filter in acl[i].filter and
                         x.filter.protocols == acl[i].filter.protocols and
-                        acl[i].filter.sports in x.filter.sports and
-                        acl[i].filter.dports in x.filter.dports,
+                        x.filter.sports in acl[i].filter.sports and
+                        x.filter.dports in acl[i].filter.dports,
                         acl[(i + 1):]))
 
             # reset acl
