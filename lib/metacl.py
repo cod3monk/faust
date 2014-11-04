@@ -219,8 +219,9 @@ class Ports:
 
     def __contains__(self, port):
         # If singles and ranges are empty return true
-        if not self.singles and not self.ranges:
-            return True
+        #TODO
+        #if not self.singles and not self.ranges:
+        #    return True
 
         # Find in single ports:
         if port in self.singles:
