@@ -231,110 +231,114 @@ def main(arguments):
     log.debug("Called with argv: %s" % sys.argv)
 
     if arguments['compile']:
-        routingdomain, vlans = arguments['<routingdomain>'], arguments['<vlan_id>']
+        for routingdomain in arguments['<routingdomain>'].split(','):
+            # Do we want to compile and install all vlans in one routing domain?
+            if arguments['<vlan_id>']:
+                vlans = arguments['<vlan_id>']
+            else:
+                try:
+                    l = os.listdir(lib.config.get('global', 'policies_dir') + '/' + routingdomain)
+                except OSError:
+                    log.error("Domain policy directory not found.")
+                    sys.exit(2)
+                ext = lib.config.get('global', 'policies_ext')
+                vlans = map(lambda x: x[:-len(ext)], filter(lambda x: x.endswith(ext), l))
+                vlans.sort(key=lambda i: str_to_int(i))
+            
+            log.info("Compiling ACL(s) for vlan(s): %s" % vlans)
+            
+            ipv6_count = 0
+            fail_count = []
+            for vlanid in vlans:
+                try:
+                    context = metacl.Context(routingdomain, vlanid)
+                    acl = context.get_acl()
+                    # make sanity_check for vlanid
+                    if not arguments['--quiet']:
+                        conflicts = acl.sanity_check()
+                        if conflicts:
+                            log.info("sanity_check found %s Conflicts in %s" % (
+                                len(conflicts), vlanid))
+                            continue_compilation = choose_conflicts(conflicts)
+                            if not continue_compilation:
+                                fail_count.append(vlanid)
+                                continue
+                    cfile, acl, ipv6 = acl.compile()
+                except (metacl.Error, macros.Error, dialects.generic.Error), err:
+                    if isinstance(err, helpers.Trackable):
+                        msg = err.origin(with_sourceline=True)
+                    else:
+                        msg = ''
+                    log.warning(msg + '%s' % err)
+                    fail_count.append(vlanid)
+                    continue
+            
+                if ipv6:
+                    ipv6_count += 1
 
-        # Do we want to compile and install all vlans in one routing domain?
-        if not vlans:
-            try:
-                l = os.listdir(lib.config.get('global', 'policies_dir') + '/' + routingdomain)
-            except OSError:
-                log.error("Domain policy directory not found.")
-                sys.exit(2)
-            ext = lib.config.get('global', 'policies_ext')
-            vlans = map(lambda x: x[:-len(ext)], filter(lambda x: x.endswith(ext), l))
-            vlans.sort(key=lambda i: str_to_int(i))
+            log.info("Successfully compiled %s ACLs and %.2f %% with IPv6" %
+                     (len(vlans) - len(fail_count), float(ipv6_count) / float(len(vlans)) * 100))
 
-        log.info("Compiling ACL(s) for vlan(s): %s" % vlans)
-
-        ipv6_count = 0
-        fail_count = []
-        for vlanid in vlans:
-            try:
-                context = metacl.Context(routingdomain, vlanid)
-                acl = context.get_acl()
-                # make sanity_check for vlanid
-                if not arguments['--quiet']:
-                    conflicts = acl.sanity_check()
-                    if conflicts:
-                        log.info("sanity_check found %s Conflicts in %s" % (len(conflicts), vlanid))
-                        continue_compilation = choose_conflicts(conflicts)
-                        if not continue_compilation:
-                            fail_count.append(vlanid)
-                            continue
-                cfile, acl, ipv6 = acl.compile()
-            except (metacl.Error, macros.Error, dialects.generic.Error), err:
-                if isinstance(err, helpers.Trackable):
-                    msg = err.origin(with_sourceline=True)
-                else:
-                    msg = ''
-                log.warning(msg + '%s' % err)
-                fail_count.append(vlanid)
-                continue
-
-            if ipv6:
-                ipv6_count += 1
-
-        log.info("Successfully compiled %s ACLs and %.2f %% with IPv6" %
-                 (len(vlans) - len(fail_count), float(ipv6_count) / float(len(vlans)) * 100))
-
-        if fail_count:
-            log.warning("%s ACLs did not compile, they are: %s" %
-                        (len(fail_count), str(fail_count)))
+            if fail_count:
+                log.warning("%s ACLs did not compile, they are: %s" %
+                            (len(fail_count), str(fail_count)))
 
     elif arguments['install']:
-        routingdomain, vlans = arguments['<routingdomain>'], arguments['<vlan_id>']
+        for routingdomain in arguments['<routingdomain>'].split(','):
+            # Do we want to compile and install all vlans in one routing domain?
+            if arguments['<vlan_id>']:
+                vlans = arguments['<vlan_id>']
+            else:
+                try:
+                    l = os.listdir(lib.config.get('global', 'policies_dir') + '/' + routingdomain)
+                except OSError as e:
+                    log.critical("Could not read policy directory for routing domain '%s': %s" %
+                                 (routingdomain, e))
+                    sys.exit(2)
+                ext = lib.config.get('global', 'policies_ext')
+                vlans = map(lambda x: x[:-len(ext)], filter(lambda x: x.endswith(ext), l))
+                vlans.sort(key=lambda i: str_to_int(i))
 
-        # Do we want to compile and install all vlans in one routing domain?
-        if not vlans:
-            try:
-                l = os.listdir(lib.config.get('global', 'policies_dir') + '/' + routingdomain)
-            except OSError as e:
-                log.critical("Could not read policy directory for routing domain '%s': %s" %
-                             (routingdomain, e))
-                sys.exit(2)
-            ext = lib.config.get('global', 'policies_ext')
-            vlans = map(lambda x: x[:-len(ext)], filter(lambda x: x.endswith(ext), l))
-            vlans.sort(key=lambda i: str_to_int(i))
+            log.info("Installing ACLs for vlan(s): %s" % (vlans))
 
-        log.info("Installing ACLs for vlan(s): %s" % (vlans))
+            ipv6_count = 0
+            fail_count = []
 
-        ipv6_count = 0
-        fail_count = []
+            for vlanid in vlans:
+                try:
+                    context = metacl.Context(routingdomain, vlanid)
+                    acl = context.get_acl()
+                    # make sanity_check for vlanid
+                    if not arguments['--quiet']:
+                        conflicts = acl.sanity_check()
+                        if conflicts:
+                            log.info("sanity_check found %s Conflicts in %s" % (
+                                len(conflicts), vlanid))
+                            continue_compilation = choose_conflicts(conflicts)
+                            if not continue_compilation:
+                                fail_count.append(vlanid)
+                                continue
+                    cfile, acl_string, ipv6 = acl.compile()
+                except (metacl.Error, macros.Error, dialects.generic.Error), err:
+                    if isinstance(err, helpers.Trackable):
+                        msg = err.origin(with_sourceline=True)
+                    else:
+                        msg = ''
+                    log.warning(msg + '%s' % err)
+                    fail_count.append(vlanid)
+                    continue
 
-        for vlanid in vlans:
-            try:
-                context = metacl.Context(routingdomain, vlanid)
-                acl = context.get_acl()
-                # make sanity_check for vlanid
-                if not arguments['--quiet']:
-                    conflicts = acl.sanity_check()
-                    if conflicts:
-                        log.info("sanity_check found %s Conflicts in %s" % (len(conflicts), vlanid))
-                        continue_compilation = choose_conflicts(conflicts)
-                        if not continue_compilation:
-                            fail_count.append(vlanid)
-                            continue
-                cfile, acl_string, ipv6 = acl.compile()
-            except (metacl.Error, macros.Error, dialects.generic.Error), err:
-                if isinstance(err, helpers.Trackable):
-                    msg = err.origin(with_sourceline=True)
-                else:
-                    msg = ''
-                log.warning(msg + '%s' % err)
-                fail_count.append(vlanid)
-                continue
+                acl.install()
 
-            acl.install()
+                if ipv6:
+                    ipv6_count += 1
 
-            if ipv6:
-                ipv6_count += 1
+            log.info("Successfully installed %s ACLs and %.2f %% with IPv6" %
+                     (len(vlans) - len(fail_count), float(ipv6_count) / float(len(vlans)) * 100))
 
-        log.info("Successfully installed %s ACLs and %.2f %% with IPv6" %
-                 (len(vlans) - len(fail_count), float(ipv6_count) / float(len(vlans)) * 100))
-
-        if fail_count:
-            log.warning("%s ACLs did not install, they are: %s" %
-                        (len(fail_count), str(fail_count)))
+            if fail_count:
+                log.warning("%s ACLs did not install, they are: %s" %
+                            (len(fail_count), str(fail_count)))
 
     elif arguments['search']:
         try:
@@ -596,137 +600,140 @@ def main(arguments):
             sys.exit(2)
 
     elif arguments['check']:
-        routingdomain, vlans = arguments['<routingdomain>'], arguments['<vlan_id>']
-        uptodate = True
+        for routingdomain in arguments['<routingdomain>'].split(','):
+            # Do we want to compile and install all vlans in one routing domain?
+            if arguments['<vlan_id>']:
+                vlans = arguments['<vlan_id>']
+            else:
+                try:
+                    l = os.listdir(lib.config.get('global', 'policies_dir') + '/' + routingdomain)
+                except OSError as e:
+                    log.error("Could not read policy directory for routing domain '%s': %s" %
+                              (routingdomain, str(e)))
+                    sys.exit(2)
+                ext = lib.config.get('global', 'policies_ext')
+                vlans = map(lambda x: x[:-len(ext)], filter(lambda x: x.endswith(ext), l))
+                vlans.sort(key=lambda i: str_to_int(i))
 
-        # Do we want to compile and install all vlans in one routing domain?
-        if not vlans:
-            try:
-                l = os.listdir(lib.config.get('global', 'policies_dir') + '/' + routingdomain)
-            except OSError as e:
-                log.error("Could not read policy directory for routing domain '%s': %s" %
-                          (routingdomain, str(e)))
-                sys.exit(2)
-            ext = lib.config.get('global', 'policies_ext')
-            vlans = map(lambda x: x[:-len(ext)], filter(lambda x: x.endswith(ext), l))
-            vlans.sort(key=lambda i: str_to_int(i))
+            log.info("Checking ACLs for vlan(s): %s" % vlans)
 
-        log.info("Checking ACLs for vlan(s): %s" % vlans)
-
-        for vlanid in vlans:
-            log.info('Checking VLAN %s ACLs...' % vlanid)
-            try:
-                if compare_acls(routingdomain, vlanid):
-                    log.info('ACLS for VLAN %s are up-to-date' % vlanid)
-                else:
-                    log.info('ACLS for VLAN %s are NOT up-to-date' % vlanid)
-            except Exception as err:
-                if isinstance(err, helpers.Trackable):
-                    msg = err.origin(with_sourceline=True)
-                else:
-                    msg = ''
-                log.error(msg + '%s' % err)
-                continue
+            for vlanid in vlans:
+                log.info('Checking VLAN %s ACLs...' % vlanid)
+                try:
+                    if compare_acls(routingdomain, vlanid):
+                        log.info('ACLS for VLAN %s are up-to-date' % vlanid)
+                    else:
+                        log.info('ACLS for VLAN %s are NOT up-to-date' % vlanid)
+                except Exception as err:
+                    if isinstance(err, helpers.Trackable):
+                        msg = err.origin(with_sourceline=True)
+                    else:
+                        msg = ''
+                    log.error(msg + '%s' % err)
+                    continue
 
     elif arguments['create']:
-        routingdomain, vlanid = arguments['<routingdomain>'], arguments['<vlan_id>'][0]
+        routingdomains, vlanid = arguments['<routingdomain>'].split(','), arguments['<vlan_id>'][0]
 
-        context = metacl.Context(routingdomain, vlanid)
-        pol_directory = context.get_policy_dir()
-        pol_file = context.get_policy_path()
+        for routingdomain in routingdomains:
+            context = metacl.Context(routingdomain, vlanid)
+            pol_directory = context.get_policy_dir()
+            pol_file = context.get_policy_path()
 
-        # Loading umaks and gid form configuration
-        try:
-            umask = int(lib.config.get('global', 'umask'))
-        except:
-            umask = None
-        try:
-            gid = int(lib.config.get('global', 'groupid'))
-        except:
-            gid = None
-
-        # Routingdomain directory might not exist
-        if not os.path.isdir(pol_directory):
-            log.info("Policy directory did not exist, but will be created.")
-
+            # Loading umaks and gid form configuration
             try:
-                # So create it
-                os.mkdir(pol_directory)
-                # Correcting rights and group ownership, if configured
-                if umask:
-                    import stat
-                    # We make shure that also executable flags are set
-                    os.chmod(pol_directory, umask + stat.S_IXUSR + stat.S_IXGRP + stat.S_IXOTH)
-                if gid:
-                    os.chown(pol_directory, -1, gid)
-            except Exception as err:
-                log.error("Problem creating directory: %s" % err)
+                umask = int(lib.config.get('global', 'umask'))
+            except:
+                umask = None
+            try:
+                gid = int(lib.config.get('global', 'groupid'))
+            except:
+                gid = None
+
+            # Routingdomain directory might not exist
+            if not os.path.isdir(pol_directory):
+                log.info("Policy directory did not exist, but will be created.")
+
+                try:
+                    # So create it
+                    os.mkdir(pol_directory)
+                    # Correcting rights and group ownership, if configured
+                    if umask:
+                        import stat
+                        # We make shure that also executable flags are set
+                        os.chmod(pol_directory, umask + stat.S_IXUSR + stat.S_IXGRP + stat.S_IXOTH)
+                    if gid:
+                        os.chown(pol_directory, -1, gid)
+                except Exception as err:
+                    log.error("Problem creating directory: %s" % err)
+                    sys.exit(2)
+
+            # Check if file already exists
+            if os.path.isfile(pol_file):
+                log.error("Policy file already exists. Will do no more.")
                 sys.exit(2)
 
-        # Check if file already exists
-        if os.path.isfile(pol_file):
-            log.error("Policy file already exists. Will do no more.")
-            sys.exit(2)
+            import shutil
+            try:
+                shutil.copyfile(lib.config.get('global', 'default_pol'), pol_file)
+            except IOError as err:
+                log.error("Problem copying default policy to new policy file: %s" % err)
+                sys.exit(2)
 
-        import shutil
-        try:
-            shutil.copyfile(lib.config.get('global', 'default_pol'), pol_file)
-        except IOError as err:
-            log.error("Problem copying default policy to new policy file: %s" % err)
-            sys.exit(2)
+            # Correcting rights and group ownership, if configured
+            if umask:
+                os.chmod(pol_file, umask)
+            if gid:
+                os.chown(pol_file, -1, gid)
 
-        # Correcting rights and group ownership, if configured
-        if umask:
-            os.chmod(pol_file, umask)
-        if gid:
-            os.chown(pol_file, -1, gid)
-
-        log.info("Successfully created default policy for %s %s" % (routingdomain, vlanid))
+            log.info("Successfully created default policy for %s %s" % (routingdomain, vlanid))
 
     elif arguments['scheck']:
-        routingdomain, vlans = arguments['<routingdomain>'], arguments['<vlan_id>']
 
-        # Do we want to check all vlans in one routing domain?
-        if not arguments['<vlan_id>']:
-            try:
-                l = os.listdir(lib.config.get('global', 'policies_dir') + '/' + routingdomain)
-            except OSError as e:
-                log.error("Could not read policy directory for routing domain '%s': %s" %
-                          (routingdomain, str(e)))
-                sys.exit(2)
-            ext = lib.config.get('global', 'policies_ext')
-            vlans = map(lambda x: x[:-len(ext)], filter(lambda x: x.endswith(ext), l))
-            vlans.sort(key=lambda i: str_to_int(i))
+        for routingdomain in arguments['<routingdomain>'].split(','):
+            # Do we want to check all vlans in one routing domain?
+            if arguments['<vlan_id>']:
+                vlans = arguments['<vlan_id>']
+            else:
+                try:
+                    l = os.listdir(lib.config.get('global', 'policies_dir') + '/' + routingdomain)
+                except OSError as e:
+                    log.error("Could not read policy directory for routing domain '%s': %s" %
+                              (routingdomain, str(e)))
+                    sys.exit(2)
+                ext = lib.config.get('global', 'policies_ext')
+                vlans = map(lambda x: x[:-len(ext)], filter(lambda x: x.endswith(ext), l))
+                vlans.sort(key=lambda i: str_to_int(i))
 
-        log.info("Checking ACLs for vlan(s): %s" % (vlans))
+            log.info("Checking ACLs for vlan(s): %s" % (vlans))
 
-        conflicts = []
-        fail_count = []
-        for vlanid in vlans:
-            try:
-                context = metacl.Context(routingdomain, vlanid)
-                macl = context.get_acl()
-                macl.apply_macros()
-                conflicts += macl.sanity_check()
-            except (metacl.Error, macros.Error, dialects.generic.Error), err:
-                if isinstance(err, helpers.Trackable):
-                    msg = err.origin(with_sourceline=True)
-                else:
-                    msg = ''
-                log.error(msg + '%s' % err)
-                fail_count.append(vlanid)
-                continue
+            conflicts = []
+            fail_count = []
+            for vlanid in vlans:
+                try:
+                    context = metacl.Context(routingdomain, vlanid)
+                    macl = context.get_acl()
+                    macl.apply_macros()
+                    conflicts += macl.sanity_check()
+                except (metacl.Error, macros.Error, dialects.generic.Error), err:
+                    if isinstance(err, helpers.Trackable):
+                        msg = err.origin(with_sourceline=True)
+                    else:
+                        msg = ''
+                    log.error(msg + '%s' % err)
+                    fail_count.append(vlanid)
+                    continue
 
-        if fail_count:
-            log.info("%s ACLS could not be checked, they are: %s" %
-                     (len(fail_count), str(fail_count)))
+            if fail_count:
+                log.info("%s ACLS could not be checked, they are: %s" %
+                         (len(fail_count), str(fail_count)))
 
-        if conflicts != []:
-            log.info("%s Conflicts found:" % len(conflicts))
-            choose_conflicts(conflicts)
+            if conflicts != []:
+                log.info("%s Conflicts found:" % len(conflicts))
+                choose_conflicts(conflicts)
 
-        else:
-            log.info("No Conflicts found!")
+            else:
+                log.info("No Conflicts found!")
 
     elif arguments['trace']:
         try:
