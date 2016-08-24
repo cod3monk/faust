@@ -359,7 +359,7 @@ def install(self, timestamp=True):
         oldacl_names = router.get_bound_acl_form_interface(ifaces[router.name])
 
         # Construct new (unique) ACL names to be used for new ACLs
-        i = 0
+        i = 2
         newacl_names = get_acl_name(routingdomain, vlanid, variant=i)
         while oldacl_names['ipv4']['in'] == newacl_names['ipv4']['in'] or \
                 oldacl_names['ipv4']['out'] == newacl_names['ipv4']['out'] or \
@@ -399,8 +399,13 @@ def install(self, timestamp=True):
             raise Error('SCP Copy failed! Squeeze might be required on router.')
 
         # Copy file into running-config
-        router.execute('copy '+temp_acl_file_on_router+' running-config',
-                       ignore=['ACL with given name and type does not exist'])
+        out = router.execute('copy '+temp_acl_file_on_router+' running-config',
+                             ignore=['ACL with given name and type does not exist'])
+        if 'cannot access file' in out:
+            log.error('Errors from %s: %s' % (router.name, out))
+            raise ErrorMessageRecived(
+                "Command 'copy %s running-config' produced the following error: %s" %
+                (temp_acl_file_on_router, command, ' '.join(out)))
 
         # Delete file from router
         router.delete(temp_acl_file_on_router)
@@ -544,7 +549,8 @@ class Router(generic.Router):
             if len(out) > 0 and error:
                 error_lines = filter(
                     (lambda x: x.strip().startswith('ERROR: ') and not x[7:] in ignore) or
-                    (lambda x: x.strip().startswith('% ') and not x[2:] in ignore), out)
+                    (lambda x: x.strip().startswith('% ') and not x[2:] in ignore) or 
+                    (lambda x: x.strip().startswith('Note: ') and not x[6:] in ignore), out)
                 if error_lines:
                     log.error('Errors from %s: %s' % (self.name, error_lines))
                     raise ErrorMessageRecived("Command '%s' produced the following error: %s" %
